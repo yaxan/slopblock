@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SlopBlock Settings</title>
+    <link rel="stylesheet" href="options.css">
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <div class="hero-brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div>
+            <h1>SlopBlock settings</h1>
+            <p>Everything saves automatically and stays on this device. No accounts, analytics, or remote rule updates.</p>
+          </div>
+        </div>
+      </header>
+
+      <nav class="toc" aria-label="Sections">
+        <a href="#quick">Quick filters</a>
+        <a href="#groups">Rule groups</a>
+        <a href="#all-rules">All rules</a>
+        <a href="#tester">Rule tester</a>
+        <a href="#terms">My terms</a>
+        <a href="#backup">Backup</a>
+      </nav>
+
+      <section class="card" id="quick">
+        <h2>Quick filters</h2>
+        <p>Common kinds of listings people disagree about. Turn one off if you actually want to see those listings — for example, keep liquidation stores or IKEA resales.</p>
+        <div id="quickRuleToggles" class="quick-toggles"></div>
+      </section>
+
+      <section class="card" id="groups">
+        <h2>Rule groups</h2>
+        <p>Whole detection areas. Turning a group off disables every rule inside it.</p>
+        <label class="wide-check switch-row">
+          <span>Show reasons on filtered cards</span>
+          <span class="toggle">
+            <input id="showReasons" type="checkbox">
+            <span class="toggle-track" aria-hidden="true"></span>
+          </span>
+        </label>
+        <div id="categories" class="categories"></div>
+      </section>
+
+      <section class="card" id="all-rules">
+        <div class="section-heading">
+          <div>
+            <h2>All built-in rules</h2>
+            <p>Full transparency: every detector, its exact pattern, weight, and confidence. Toggle off any rule that is too aggressive for how you shop.</p>
+          </div>
+          <input id="ruleSearch" type="search" placeholder="Search rules…">
+        </div>
+        <div id="rules" class="rules"></div>
+      </section>
+
+      <section class="card" id="tester">
+        <h2>Rule tester</h2>
+        <p>Paste any listing text to see exactly what SlopBlock would do with your current settings — before you tweak anything.</p>
+        <div class="tester-grid">
+          <label>
+            Title
+            <input id="testTitle" type="text" placeholder="Brand new cloud couch">
+          </label>
+          <label>
+            Displayed price
+            <input id="testPrice" type="text" placeholder="$1">
+          </label>
+        </div>
+        <label>
+          Visible listing text
+          <textarea id="testText" rows="6" spellcheck="false" placeholder="Paste the listing card or description text here."></textarea>
+        </label>
+        <div class="button-row">
+          <button id="runRuleTest" type="button">Test this listing</button>
+          <button id="clearRuleTest" type="button" data-variant="quiet">Clear</button>
+        </div>
+        <div id="testResult" class="test-result" aria-live="polite"></div>
+      </section>
+
+      <section class="card" id="terms">
+        <h2>My terms</h2>
+        <p>Your own local rules, one word or phrase per line. Terms match whole words or phrases, never fragments inside other words.</p>
+        <div class="terms-grid">
+          <label>
+            <strong>Always block</strong>
+            <span>Strong local blocks — local spam stores, recurring junk.</span>
+            <textarea id="customBlockTerms" rows="6" spellcheck="false" placeholder="acme liquidation&#10;buy here pay here motors"></textarea>
+          </label>
+          <label>
+            <strong>Treat as vendor/dropship</strong>
+            <span>Adds vendor-level suspicion without outright blocking.</span>
+            <textarea id="customVendorTerms" rows="6" spellcheck="false" placeholder="joe's wholesale"></textarea>
+          </label>
+          <label>
+            <strong>Always allow</strong>
+            <span>Rescues false positives — matching listings never hide.</span>
+            <textarea id="customAllowTerms" rows="6" spellcheck="false" placeholder="ikea kallax"></textarea>
+          </label>
+          <label>
+            <strong>Allowed item IDs</strong>
+            <span>One Marketplace item ID per line. Added automatically when you click “Allow item”.</span>
+            <textarea id="customAllowItemIds" rows="6" spellcheck="false" placeholder="1234567890123456"></textarea>
+          </label>
+        </div>
+      </section>
+
+      <section class="card" id="backup">
+        <h2>Backup &amp; reset</h2>
+        <p>Export/import all settings as JSON — useful for sharing rule presets between machines without any account.</p>
+        <textarea id="settingsJson" rows="6" spellcheck="false" placeholder="Export fills this box; paste settings JSON here to import."></textarea>
+        <div class="button-row">
+          <button id="exportSettings" type="button">Export settings</button>
+          <button id="importSettings" type="button">Import settings</button>
+          <button id="reset" type="button" data-variant="danger">Reset all to defaults</button>
+        </div>
+      </section>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>

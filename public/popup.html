@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SlopBlock</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="brand">
+        <div class="brand-name">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div>
+            <h1>SlopBlock</h1>
+            <p class="brand-sub">Marketplace filter</p>
+          </div>
+        </div>
+        <label class="toggle" title="Turn all filtering on or off">
+          <input id="enabled" type="checkbox">
+          <span class="toggle-track" aria-hidden="true"></span>
+        </label>
+      </header>
+
+      <section class="panel page-summary-panel">
+        <div class="panel-heading">
+          <h2 class="panel-title">This page</h2>
+          <div class="panel-heading-actions">
+            <button id="showHidden" type="button" data-variant="quiet" title="Preview everything SlopBlock hid on this page">Show hidden</button>
+            <button id="hideFiltered" type="button" data-variant="quiet" title="Re-hide the previewed listings">Re-hide</button>
+            <button id="refreshSummary" type="button" data-variant="quiet" title="Refresh this summary">↻</button>
+          </div>
+        </div>
+        <div id="pageSummary" class="page-summary">
+          <p class="panel-note">Open a Marketplace tab to see what SlopBlock hid and why.</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">Filtering</h2>
+        <div class="field">
+          <span class="field-label">Strength</span>
+          <div class="segmented" id="aggressivenessGroup" role="radiogroup" aria-label="Filter strength">
+            <label><input type="radio" name="aggressiveness" value="relaxed"><span>Relaxed</span></label>
+            <label><input type="radio" name="aggressiveness" value="balanced"><span>Balanced</span></label>
+            <label><input type="radio" name="aggressiveness" value="strict"><span>Strict</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <span class="field-label">Action</span>
+          <div class="segmented" id="filterModeGroup" role="radiogroup" aria-label="Filter action">
+            <label><input type="radio" name="filterMode" value="hide"><span>Hide</span></label>
+            <label><input type="radio" name="filterMode" value="dim"><span>Dim only</span></label>
+            <label><input type="radio" name="filterMode" value="label"><span>Label only</span></label>
+          </div>
+          <p class="panel-note" id="modeHint">Hide removes high-confidence slop, dims medium, labels mild.</p>
+        </div>
+        <label class="switch-row">
+          <span>Show reasons on filtered cards</span>
+          <span class="toggle">
+            <input id="showReasons" type="checkbox">
+            <span class="toggle-track" aria-hidden="true"></span>
+          </span>
+        </label>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <h2 class="panel-title">Quick filters</h2>
+        </div>
+        <p class="panel-note">Turn whole kinds of listings on or off. More in advanced settings.</p>
+        <div id="quickRuleToggles" class="quick-toggles"></div>
+      </section>
+
+      <footer class="footer">
+        <button id="rescan" type="button" data-variant="quiet">Rescan page</button>
+        <button id="copyDiagnostics" type="button" data-variant="quiet">Copy diagnostics</button>
+        <a href="options.html" target="_blank" rel="noreferrer">All rules &amp; settings</a>
+      </footer>
+
+      <p id="status" class="status" aria-live="polite"></p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

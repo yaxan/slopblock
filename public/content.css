@@ -1,0 +1,182 @@
+/* Dim and hidden-preview fade the card via an overlay (not element opacity)
+   so SlopBlock badges stay fully readable on top. */
+.slopblock-dim::after,
+.slopblock-hidden-preview::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 2147483640 !important;
+  border-radius: 8px !important;
+  background: rgba(244, 241, 232, 0.62) !important;
+  backdrop-filter: grayscale(0.9) !important;
+  pointer-events: none !important;
+}
+
+.slopblock-hidden-preview::after {
+  background: rgba(244, 241, 232, 0.82) !important;
+}
+
+.slopblock-label {
+  outline: 2px solid rgba(190, 87, 35, 0.85) !important;
+  outline-offset: 2px !important;
+}
+
+.slopblock-hidden-preview {
+  outline: 2px dashed rgba(190, 87, 35, 0.8) !important;
+  outline-offset: 2px !important;
+}
+
+.slopblock-badge {
+  position: absolute !important;
+  z-index: 2147483646 !important;
+  left: 8px !important;
+  top: 8px !important;
+  max-width: calc(100% - 16px) !important;
+  box-sizing: border-box !important;
+  padding: 6px 8px !important;
+  border: 1px solid rgba(44, 30, 17, 0.22) !important;
+  border-radius: 9px !important;
+  background: rgba(252, 248, 236, 0.97) !important;
+  color: #271d12 !important;
+  box-shadow: 0 4px 14px rgba(20, 14, 8, 0.16) !important;
+  font: 600 11px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, sans-serif !important;
+  pointer-events: auto !important;
+}
+
+.slopblock-badge-summary {
+  pointer-events: none !important;
+}
+
+.slopblock-badge-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 4px !important;
+  margin-top: 5px !important;
+}
+
+.slopblock-badge-actions button {
+  border: 1px solid rgba(42, 52, 30, 0.22) !important;
+  border-radius: 999px !important;
+  padding: 4px 8px !important;
+  background: #2f4a31 !important;
+  color: #fff7df !important;
+  cursor: pointer !important;
+  font: 700 10px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, sans-serif !important;
+}
+
+.slopblock-badge-actions button:hover {
+  filter: brightness(1.12) !important;
+}
+
+/* ---- floating pill + expandable panel ---- */
+
+.slopblock-toolbar {
+  position: fixed !important;
+  z-index: 2147483647 !important;
+  right: 16px !important;
+  bottom: 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 8px !important;
+  color: #251b10 !important;
+  font: 600 12px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, sans-serif !important;
+}
+
+.slopblock-pill {
+  display: flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  padding: 7px 12px 7px 8px !important;
+  border: 1px solid rgba(48, 37, 23, 0.16) !important;
+  border-radius: 999px !important;
+  background: rgba(252, 248, 236, 0.96) !important;
+  color: #2f4a31 !important;
+  box-shadow: 0 6px 20px rgba(22, 20, 14, 0.18) !important;
+  cursor: pointer !important;
+  font: 700 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, sans-serif !important;
+  opacity: 0.62 !important;
+  transition: opacity 0.15s ease, transform 0.15s ease !important;
+}
+
+.slopblock-toolbar[data-active="true"] .slopblock-pill {
+  opacity: 1 !important;
+}
+
+.slopblock-pill:hover {
+  opacity: 1 !important;
+  transform: translateY(-1px) !important;
+}
+
+.slopblock-pill-mark {
+  width: 18px !important;
+  height: 18px !important;
+  border-radius: 6px !important;
+  background: linear-gradient(150deg, #46683f, #2f4a31) !important;
+  position: relative !important;
+  flex: none !important;
+}
+
+.slopblock-pill-mark::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 5px 4px 4px 5px !important;
+  border-radius: 2px !important;
+  background: rgba(255, 247, 223, 0.92) !important;
+  clip-path: polygon(0 0, 100% 0, 100% 62%, 50% 100%, 0 62%) !important;
+}
+
+.slopblock-panel {
+  width: 214px !important;
+  box-sizing: border-box !important;
+  padding: 10px !important;
+  border: 1px solid rgba(48, 37, 23, 0.16) !important;
+  border-radius: 14px !important;
+  background: rgba(252, 248, 236, 0.98) !important;
+  box-shadow: 0 14px 42px rgba(22, 20, 14, 0.22) !important;
+}
+
+.slopblock-toolbar[data-collapsed="true"] .slopblock-panel {
+  display: none !important;
+}
+
+.slopblock-toolbar-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  margin: 3px 0 !important;
+}
+
+.slopblock-toolbar-row span:last-child {
+  font-variant-numeric: tabular-nums !important;
+  font-weight: 700 !important;
+}
+
+.slopblock-toolbar-actions {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 6px !important;
+  margin-top: 8px !important;
+}
+
+.slopblock-toolbar button:not(.slopblock-pill) {
+  border: 1px solid rgba(42, 52, 30, 0.25) !important;
+  border-radius: 999px !important;
+  padding: 6px 8px !important;
+  background: #2f4a31 !important;
+  color: #fff7df !important;
+  cursor: pointer !important;
+  font: 700 11px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, sans-serif !important;
+}
+
+.slopblock-toolbar button[data-variant="quiet"] {
+  background: #fff7df !important;
+  color: #2f4a31 !important;
+}
+
+.slopblock-toolbar-hint {
+  margin-top: 8px !important;
+  color: #8a7a63 !important;
+  font: 500 10px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, sans-serif !important;
+  text-align: center !important;
+}

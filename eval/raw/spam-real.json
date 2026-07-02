@@ -1,0 +1,258 @@
+[
+  {
+    "source": "https://www.boston25news.com/news/local/watch-out-this-new-scam-facebook-marketplace-craigslist/OZ2V53XZ7VGEDKOXUFITD6X5LQ/",
+    "kind": "scam-code",
+    "title": "",
+    "price": "",
+    "body": "If your post is real, send me the code, then I'll call.",
+    "note": "Google Voice verification-code scam text sent to a Marketplace/Craigslist seller; scammer triggers a 6-digit Google Voice code to the seller's phone and demands it to 'verify the listing is real'. Same wording cited by FTC consumer alert (consumer.ftc.gov/consumer-alerts/2021/10/google-voice-scam-how-verification-code-scam-works-how-avoid-it)."
+  },
+  {
+    "source": "https://www.bbb.org/article/scams/27212-scam-alert-how-to-spot-shady-buyers-on-facebook-marketplace",
+    "kind": "scam-payment",
+    "title": "",
+    "price": "",
+    "body": "I received an email from zelle@bankconfirmedpayment.com explaining that the funds were waiting, but the buyer had to send an additional $300 in order to upgrade my account because the transaction was over $600, and I would need a business account. [...] He was very upset and persistent that I needed to pay him back for the fees that he incurred on my behalf.",
+    "note": "BBB Scam Tracker victim report quoted in BBB Scam Alert; fake 'Zelle business account upgrade' fee scam targeting Marketplace sellers — spoofed Zelle email demands $300 upgrade, 'buyer' pressures seller to reimburse."
+  },
+  {
+    "source": "https://www.techlicious.com/blog/sellers-beware-of-this-facebook-marketplace-scam/",
+    "kind": "scam-payment",
+    "title": "",
+    "price": "",
+    "body": "$750 ON HOLD DUE TO ZELLE ACCOUNT LIMIT",
+    "note": "Subject line of spoofed Zelle email received by a Marketplace seller (quoted in Techlicious report on the Zelle business-upgrade scam); payment 'on hold' until seller upgrades account / buyer sends extra funds."
+  },
+  {
+    "source": "https://www.techlicious.com/blog/sellers-beware-of-this-facebook-marketplace-scam/",
+    "kind": "scam-payment",
+    "title": "",
+    "price": "",
+    "body": "my wife will pick it up and I'll pay you now with Zell",
+    "note": "Verbatim buyer message reported by a Marketplace seller in Techlicious comments; sight-unseen instant Zelle payment + third-party ('my wife') pickup is the standard opener of the fake-payment/upgrade-fee scam. Note misspelling 'Zell'."
+  },
+  {
+    "source": "https://www.techlicious.com/blog/sellers-beware-of-this-facebook-marketplace-scam/",
+    "kind": "scam-payment",
+    "title": "",
+    "price": "",
+    "body": "can I trust you to send the over-payment?",
+    "note": "Verbatim scammer message quoted by a seller in Techlicious comments; overpayment scam — 'buyer' plans to send more than asking price and have seller refund the difference before the fake payment bounces."
+  },
+  {
+    "source": "https://www.techlicious.com/blog/sellers-beware-of-this-facebook-marketplace-scam/",
+    "kind": "scam-payment",
+    "title": "",
+    "price": "",
+    "body": "My company just posted me to neighborhood due to job promotion, i am moving in soon but I want my movers to pick up the item",
+    "note": "Verbatim buyer message reported by a Marketplace seller in Techlicious comments; classic mover/courier overpayment template (buyer 'relocating for job', pays remotely, sends 'movers'), broken English typical of the script."
+  },
+  {
+    "source": "https://www.reddit.com/r/Scams/comments/1i37hwb/scammed_on_facebook_marketplace/m7koa2e/",
+    "kind": "scam-code",
+    "title": "",
+    "price": "",
+    "body": "For my safety, I'm going to send you a code to verify that you're a real person. Give me your phone number and I'll send the code. When you get it, send it to me so I know you're real.",
+    "note": "Scammer script quoted verbatim in r/Scams comment recounting a Facebook Marketplace account-takeover: the 'code' was actually a Facebook password-reset code, victim was locked out of her account. Same script used for Google Voice number hijack."
+  },
+  {
+    "source": "https://www.reddit.com/r/FacebookMarketplace/comments/p3o8ue/fb_marketplace_usa_sellers_lets_work_together/",
+    "kind": "dropship",
+    "title": "FB MARKETPLACE USA SELLERS - Let's work together",
+    "price": "",
+    "body": "If you currently buy on Aliexpress or Amazon and sometimes gets bad review because customers noticed that the package came in Amazon box or they complain about not getting their order because of the fake tracking number, I would love to solve this problem. Or if you want to start selling on marketplaces, but don't want to buy inventory - I can work with you as well. I have inventory of products in a particular category. I have majority positive reviews even on ebay because I ship fast and really care for the customers. Please let me know if you are interested, so we can talk about more. [...] This is a sincere post for serious dropshippers only.",
+    "note": "Verbatim dropship-supplier recruitment post on r/FacebookMarketplace; documents the FBM dropship ecosystem's own red flags in their own words: 'package came in Amazon box', 'fake tracking number', selling without inventory."
+  },
+  {
+    "source": "https://www.reddit.com/r/FacebookMarketplace/comments/wx9ee3/someone_to_sell_my_product_on_fb_market_place/",
+    "kind": "service-mlm",
+    "title": "Someone to sell my product on FB market place.",
+    "price": "",
+    "body": "I own a profitable niche perfume brand that is doing well on TikTok www.lustperfume.com (over 50k followers on TikTok and a lot of content) due to a viral trend from last year. It has good margins, ships from the US about 3-5days delivery time and I am constantly churning out marketing videos. I believe partnering with a few people to sell my product on FB marketplace will be a good way to expand my reach as it already covers most of the issues dropshippers experience. Shipping times, inability to create a lot of content and profit margin. I used to be a dropshipper myself so I understand the challenges. You can sell our product on Amazon, E-bay, Facebook market place etc.",
+    "note": "Verbatim business-opportunity recruitment pitch ('partner to sell my brand on FB Marketplace') posted to r/FacebookMarketplace; typical reseller/biz-opp solicitation language: 'good margins', 'ships from the US 3-5days', 'used to be a dropshipper myself'."
+  },
+  {
+    "source": "https://www.reddit.com/r/FacebookMarketplace/comments/ug52rp/how_long_does_it_take_you_to_get_sales_on/",
+    "kind": "flood",
+    "title": "How long does it take you to get sales on Facebook shops?",
+    "price": "",
+    "body": "I'm a Facebook dropshipper and I'm curious if my experiences line up with anyone else's. When I bulk upload on a shop, generally I'll do 500-1000 products, and it'll take about two weeks to start selling. Anyone else experience it the same way?",
+    "note": "Verbatim self-description by a Facebook dropshipper of bulk-flooding listings ('bulk upload... 500-1000 products'); first-person documentation of listing-flood behavior on FB Shops/Marketplace."
+  },
+  {
+    "source": "https://www.reddit.com/r/Scams/comments/1i9zlag/what_kind_of_venmo_scam_is_this/",
+    "kind": "scam-payment",
+    "title": "",
+    "price": "",
+    "body": "Dear Valued Customer, We regret to inform you that we encountered a minor issue when attempting to credit your account with **$$$. This amount appears to exceed your current balance limit. Why do I need to expand my account? You may wonder why it's necessary to expand your account. Initially, we impose limits on all accounts as a security measure to prevent fraudulent activities. To unlock the full range of benefits and receive unlimited funds, please take the following immediate steps to expand your account. How do I expand my account - Action needed. Kindly get in touch with the buyer and tell the buyer to send an additional payment of $350.00 to fully expand your account. Once this payment is received, we will immediately credit your account with the total sum of $800.00. As a gesture of goodwill for any inconvenience caused, we will also include a complimentary compensation fee of $50.",
+    "note": "Full fake 'Venmo' email (from venmofee@venmoservice.online) pasted verbatim by a Marketplace seller on r/Scams; business-account/balance-limit upgrade scam. Buyer first asked for seller's Venmo + email 'to take my item off the market and pick it up tomorrow' because 'they had a business account'."
+  },
+  {
+    "source": "https://bobistheoilguy.com/forums/threads/facebook-marketplace-bs-price-car-ads.314908/",
+    "kind": "other-spam",
+    "title": "",
+    "price": "",
+    "body": "Hey there. I would like to speak with you. Any accidents reported on it? If you can, please message me at my personal email instead of here please. I will leave it below for you. Mail has not been going through consistently on Craigslist and I want to make sure we can get in touch with each other. My email: LukeCook624(at-Gmaìl-com) Maybe check your spam folder also.",
+    "note": "Verbatim off-platform email-lure message received by a car seller, pasted in a forum thread about Facebook Marketplace/Craigslist BS car ads (retrieved via Wayback snapshot). Same take-it-to-email template is used on FBM; harvests emails for phishing/fake-escrow follow-up. Note spoofed unicode 'Gmaìl'."
+  },
+  {
+    "source": "https://www.scampulse.com/online-seller-fb-marketplace-scam-reviews",
+    "kind": "dropship",
+    "title": "",
+    "price": "",
+    "body": "Wasn't what I was ordering, I was trying to get the bed bug machine instead you sent me the mosquito machine.",
+    "note": "Verbatim ScamPulse victim report against 'Online Seller - FB Marketplace'; classic dropship bait-and-switch — cheap gadget ad ships a different, cheaper item from a third-party warehouse; return address often doesn't exist."
+  },
+  {
+    "source": "https://www.scampulse.com/online-seller-fb-marketplace-scam-reviews",
+    "kind": "dropship",
+    "title": "",
+    "price": "$59.95",
+    "body": "So I ordered 2 of these for Smart TV Streaming BOX for 59.95! These are nothing more than an adapter.",
+    "note": "Verbatim ScamPulse victim report; FB Marketplace 'Smart TV Streaming Box' ad drop-shipped a bare HDMI-style adapter. Related reports on same page: 'Ordered 3 and only got 1. Plus it didn't work. Scam.' and 'return address doesn't exist'."
+  },
+  {
+    "source": "https://www.scampulse.com/online-seller-fb-marketplace-scam-reviews",
+    "kind": "counterfeit",
+    "title": "",
+    "price": "",
+    "body": "This scam seller showed 'Clar*', decent shoe brand with big discount with the original brand's leather shoes.",
+    "note": "Verbatim ScamPulse victim report; counterfeit branded (Clarks-style) leather shoes advertised 'with big discount' on FB Marketplace, knockoff arrives. Typical counterfeit-dropship overlap with fake brand imagery."
+  },
+  {
+    "source": "https://www.reddit.com/r/Scams/comments/1hk2jr7/facebook_for_sale_scam_deceased_friend/",
+    "kind": "scam-deposit",
+    "title": "",
+    "price": "",
+    "body": "Good day everyone❤️, We're conducting a sale of personal items due to my cousin is moving to care facility , which requires significant downsizing. To manage this transition smoothly, items are being sold on a first-come, first-serve basis. I'll be out of town assisting with her move and won't be back until the January 7th . To reserve an item, a deposit is necessary. This ensures that the item is held for you until I return, at which point you can view and decide on the purchase. Deposits are fully refundable if you choose not to proceed after viewing. 2018 Jayco JayFeather(Camper) $6000 / 2013 Ford F-150 FX4 $4500 / 2018 GMC Sierra 1500 SLT Texas Edition $10,000 / Honda civic. $2000 / Generator (Generac) $2500 / Tractor $3500 / Hot tub $1100 / Golf cart - $2000 / washer and dryer - $500 / Zero turn Mower - $900 [...] Prices slightly negotiable DM. Thank you ❤️",
+    "note": "FULL verbatim hijacked-account 'estate sale' deposit scam post, pasted by a redditor whose deceased friend's Facebook account was posting it; below-market vehicles/equipment, 'out of town', 'deposit is necessary to reserve', 'fully refundable'. Facebook repeatedly declined to remove it."
+  },
+  {
+    "source": "https://www.reddit.com/r/Scams/comments/1eyofti/i_fell_for_a_facebook_scam_and_im_out_1k/",
+    "kind": "scam-deposit",
+    "title": "",
+    "price": "$2,000 tractor / $600 trailer",
+    "body": "my husband is mad at me for only getting a 1k deposit on $2600 worth of goods so can you *kindly* send me 2k to make him happy",
+    "note": "Scammer's follow-up demand (quoted 'in so many words' by the victim, who flagged the word 'kindly') in a hacked-profile equipment sale scam: Kubota BX1880 tractor listed $2k (retail ~$10k), $1,000 deposit demanded via PayPal Friends & Family 'as a gesture of being serious', pickup address never provided. Victim lost $1,000."
+  },
+  {
+    "source": "https://www.reddit.com/r/UsedCars/comments/jurmyg/sketchy_ebay_cars_deals_deal_too_good_to_be_true/",
+    "kind": "bait-price",
+    "title": "",
+    "price": "$1,400",
+    "body": "you do it through eBay and only after use driver for 5 days and confirm I received the payment so it's safe and foolproof",
+    "note": "Verbatim seller reply quoted by a shopper who found a car listed at $1,400 (and a Lexus at $2,900) on Facebook Marketplace; too-good-to-be-true bait price funnels into fake 'eBay handles the transaction / 5-day trial' escrow scam. Seller confirmed $1,400 'is how much the car is'."
+  },
+  {
+    "source": "https://fredyscars.com/",
+    "kind": "dealer",
+    "title": "$500 Down Cars Bad Credit Auto Used Cars Houston",
+    "price": "$500-$1000 down",
+    "body": "$500 – $1000 DOWN • ALL CREDIT WELCOME / GET APPROVED. GET DRIVING. TODAY. / Whether you have bad credit, no credit, car repos, or a previous bankruptcy / We put people first — not credit scores. / Your job serves as your credit / 2 MINUTES APPROVAL! / In House Financing / Up to 30 months or 30 miles optional service contract!",
+    "note": "Verbatim marketing copy from a Houston buy-here-pay-here dealer's own site; the exact subprime-dealer language ('$500 down', 'all credit welcome', 'your job serves as your credit', 'in house financing') that BHPH lots blast across Facebook Marketplace car listings."
+  },
+  {
+    "source": "https://www.drivenationusa.com/",
+    "kind": "dealer",
+    "title": "Buy Here Pay Here Bradenton FL ... Zero Down Buy Here Pay Here, Repo's OK",
+    "price": "$50/week",
+    "body": "Regardless of your bad credit history past, we can get you approved for your next used vehicle / payments as low as $50 per week for Buy Here Pay Here / We can get you in and out in less than 1 hour and driving your new vehicle / From Bank Financing to Buy Here Pay Here, We have you covered on every type of financing / Call and get approved, It's that easy",
+    "note": "Verbatim BHPH dealer marketing copy (site title itself is keyword spam: 'Bad Credit Car Lots, Zero Down Buy Here Pay Here, Repo's OK... Fast Approvals'); typical of dealer listings flooding Marketplace with payment-based pricing instead of vehicle price."
+  },
+  {
+    "source": "https://nofightingwithtitan.com/",
+    "kind": "dealer",
+    "title": "Titan Auto Group | Buy Here Pay Here Phoenix & $500 Down Car Lots",
+    "price": "$199 down",
+    "body": "$199 Down DRIVE Today | Low Down Payment Car Lots / Good Credit, New Credit, Or Bruised Credit We Can Help! / Don't let bad credit stop you from getting the car you need / No need to worry about your credit score / 2017 Chevrolet Malibu $290 To Drive Away / 2016 Buick Encore $270 To Drive Away",
+    "note": "Verbatim Phoenix BHPH dealer copy: down payment advertised in place of price ('$290 To Drive Away' on a Malibu), 'no-credit-check pathway' language; the ad style that appears as $199/$500 car 'prices' on Marketplace."
+  },
+  {
+    "source": "https://www.reddit.com/r/askcarsales/comments/1fby0iu/is_getting_a_car_even_possible_for_me_at_the/lm58bhs/",
+    "kind": "dealer",
+    "title": "",
+    "price": "$1000 down, $425/mo",
+    "body": "I know you can get approved because I would approve you. That means someone in your area is doing what I do. $1000 down, $425/mo on an older car that's definitely not worth that much, but it's cheaper than ride share. [...] Get on Facebook Marketplace and find a buy here pay here with a good rating and get yourself a way of goin. It will be overpriced for what it is, but they won't give a shit that you have no credit and no cosigner.",
+    "note": "Verbatim comment by a self-identified BHPH dealer/F&I employee on r/askcarsales describing (and pitching) the exact model behind Marketplace BHPH listings: overpriced older cars, $1000 down, $425/mo, no credit needed."
+  },
+  {
+    "source": "https://www.carvidapp.com/facebook-marketplace-dealer-posting-rules/",
+    "kind": "bait-price",
+    "title": "$1 (Real Price: $15,000)",
+    "price": "$1",
+    "body": "$1 (Real Price: $15,000) / LOW PAYMENTS!!! EVERYONE APPROVED!!! / 🔥🔥🔥 MUST SEE!!! CHEAP!!! 🔥🔥🔥 / BEST DEAL IN TOWN!!! CALL NOW!!!",
+    "note": "Non-compliant dealer listing titles quoted from a Facebook Marketplace dealer-compliance guide (its examples of the fake-price/clickbait titles that get dealer accounts banned: listing $1/$100/$500 when real price is $15,000). Illustrative titles from the guide, not one captured listing."
+  },
+  {
+    "source": "https://www.reddit.com/r/FacebookMarketplace/comments/1jxn9ym/people_that_mislead_prices/mmthihg/",
+    "kind": "bait-price",
+    "title": "PRICES IN DESCRIPTION",
+    "price": "$1",
+    "body": "It's a commonly accepted workaround to the fact that Facebook Marketplace is lacking functionality for having varying prices under one listing... that the $1 thing should be considered a classifieds 'cultural norm.' [...] To be safe, I recently started putting 'PRICES IN DESCRIPTION' in my titles in case there is the odd person who actually thinks it's $1.",
+    "note": "Verbatim self-description by a seller who lists items at $1 with 'PRICES IN DESCRIPTION' in the title — first-person documentation of the $1 bait-price listing convention, in a thread complaining about misleading $1 listings."
+  },
+  {
+    "source": "https://www.reddit.com/r/FacebookMarketplace/comments/1kbsd1e/dont_do_the_following_if_you_want_to_create_an/",
+    "kind": "bait-price",
+    "title": "",
+    "price": "Free / $1 / $1234 / $9999",
+    "body": "List the price as Free, $1, $1234, $9999, and ask for the offers in the description. / List as Free, and say in the description that it's not free. / List a very low price like $10, and say in the description that the $10 is for the cheapest item, with the prices of more expensive items / List at a certain price with pictures of multiple items or quantities, and say in the description that the price is for EACH.",
+    "note": "Community PSA on r/FacebookMarketplace enumerating the observed bait-price listing patterns verbatim (Free/$1/$1234/$9999 placeholder prices, real price hidden in description, per-each pricing revealed at pickup). Complaint post cataloguing tactics, not a single captured listing."
+  },
+  {
+    "source": "https://www.reddit.com/r/AirpodsPro/comments/10e6h01/got_these_airpod_pro_gen_2_from_facebook/",
+    "kind": "counterfeit",
+    "title": "",
+    "price": "$30",
+    "body": "Got these AirPod pro Gen 2 from Facebook marketplace for $30 she said she got them as a gift opened them and didn't want them. Are these Fake? Got everything with them except packaging. Can still get apple care.",
+    "note": "Verbatim buyer post; $30 'AirPods Pro 2' with the classic counterfeit cover story ('got them as a gift, opened them and didn't want them'); commenters confirmed fake. Fake serials often still pass Apple coverage checks."
+  },
+  {
+    "source": "https://www.reddit.com/r/AirpodsPro/comments/1g07cnb/apple_product_scam_warning/",
+    "kind": "counterfeit",
+    "title": "Apple product scam warning",
+    "price": "",
+    "body": "They go by the name Ryan CK on marketplace and they are in the Sacramento, CA area. He has a suspicious amount of reoccurring posts of \"Apple\" products that are being sold under market value with the claim that he \"already has one\" or that he got the wrong color of that product in the case of Airpod Max's.",
+    "note": "Verbatim community warning about a repeat counterfeit-Apple seller on FB Marketplace; quotes the seller's recurring cover stories ('already has one', 'got the wrong color') and documents flood-style reposting of under-market 'Apple' gear."
+  },
+  {
+    "source": "https://www.wbrc.com/2024/05/29/hoover-man-warns-counterfeit-products-online-after-scammed-into-buying-fake-airpods-facebook-marketplace/",
+    "kind": "counterfeit",
+    "title": "",
+    "price": "$73",
+    "body": "hey the Airpod pros you sold me were fake and if you're honest I'd like to meet and get a refund back. Otherwise, I'm going to have to report it.",
+    "note": "News report of counterfeit AirPods Pro sold for $73 on FB Marketplace (Hoover, AL); body is the buyer's verbatim message to the seller after an Apple Store confirmed fakes (wrong font/text/lid mechanism); seller never responded. Listing wording itself not published."
+  },
+  {
+    "source": "https://www.reddit.com/r/antiMLM/comments/8iq1at/facebook_has_a_jobs_section_in_their_marketplace/dytreet/",
+    "kind": "service-mlm",
+    "title": "Independent avon sales rep",
+    "price": "",
+    "body": "Independent avon sales rep — Part-time Job — Apply Now. Job Details: Always needing avon sales reps. Wanna join my team?!? Let me know. After rebates your start up kit will be free!!",
+    "note": "Real Facebook Marketplace Jobs-section MLM listing, transcribed verbatim from the screenshot by a r/TranscribersOfReddit volunteer in r/antiMLM; classic MLM recruitment framed as a part-time job ('join my team', 'start up kit will be free')."
+  },
+  {
+    "source": "https://www.scampulse.com/online-seller-fb-marketplace-scam-reviews",
+    "kind": "dropship",
+    "title": "",
+    "price": "",
+    "body": "Ordered 3 and only got 1. Plus it didn't work. Scam.",
+    "note": "Verbatim ScamPulse victim report against 'Online Seller - FB Marketplace'; multi-item gadget order drop-shipped incomplete and non-functional. Companion report on same page: package 'shipped 12/6/23; Received 1/24... $79.99... return address doesn't exist.'"
+  },
+  {
+    "source": "https://www.scampulse.com/online-seller-fb-marketplace-scam-reviews",
+    "kind": "scam-code",
+    "title": "",
+    "price": "",
+    "body": "They wanted my phone # and then a 6-digit code. I did give my phone number, then they asked for a code.",
+    "note": "Verbatim ScamPulse victim report of the Google Voice verification-code scam run through FB Marketplace chat: 'buyer' asks for phone number, triggers a 6-digit code, then asks the seller to read it back (hijacks number for a Google Voice account)."
+  },
+  {
+    "source": "https://www.herald-dispatch.com/features_entertainment/better-business-bureau-scam-alert-selling-used-items-online-beware-of-overpayment-scams/article_57f4ea85-e3ac-4946-a3c8-523cdb925679.html",
+    "kind": "scam-payment",
+    "title": "",
+    "price": "",
+    "body": "They had to pay $1,000 to get the account to work and I would then pay them back through Zelle or PayPal",
+    "note": "BBB Scam Tracker report (Ohio consumer, quoted in BBB overpayment scam alert): 'buyer' claimed their Venmo was a business account and the seller's personal account required a $1,000 fee to 'get the account to work', to be reimbursed via Zelle/PayPal. Victim lost over $2,000."
+  }
+]

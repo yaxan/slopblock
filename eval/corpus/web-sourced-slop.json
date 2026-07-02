@@ -1,0 +1,112 @@
+[
+  {
+    "id": "web-s-001",
+    "label": "slop",
+    "kind": "dealer",
+    "source": "https://www.fredyscars.com/ (real BHPH dealer ad copy, collected 2026-07)",
+    "title": "$500 Down Cars Bad Credit Auto Used Cars Houston",
+    "price": "$500",
+    "location": "Houston, TX",
+    "body": "$500 - $1000 DOWN. ALL CREDIT WELCOME / GET APPROVED. GET DRIVING. TODAY. Whether you have bad credit, no credit, car repos, or a previous bankruptcy, we put you in the driver's seat.",
+    "note": "Verbatim real subprime dealer ad copy"
+  },
+  {
+    "id": "web-s-002",
+    "label": "slop",
+    "kind": "dealer",
+    "source": "https://drivenationusa.com/ (real BHPH dealer copy, collected 2026-07)",
+    "title": "Buy Here Pay Here - Zero Down",
+    "price": "$50",
+    "location": "Bradenton, FL",
+    "body": "Regardless of your bad credit history past, we can get you approved for your next used vehicle. Payments as low as $50 per week for Buy Here Pay Here.",
+    "note": "Real dealer weekly-payment pitch"
+  },
+  {
+    "id": "web-s-003",
+    "label": "slop",
+    "kind": "dealer",
+    "source": "https://nofightingwithtitan.com/ (real dealer copy, collected 2026-07)",
+    "title": "Titan Auto Group - $500 Down Cars",
+    "price": "$199",
+    "location": "Phoenix, AZ",
+    "body": "$199 Down DRIVE Today | Low Down Payment Car Lots. Good Credit, New Credit, Or Bruised Credit We Can Help! Don't let bad credit stop you.",
+    "note": "Down payment posted as price"
+  },
+  {
+    "id": "web-s-004",
+    "label": "slop",
+    "kind": "bait-price",
+    "source": "https://reddit.com/r/FacebookMarketplace (community-documented bait pattern)",
+    "title": "2015 Ford F-150 - MUST SEE",
+    "price": "$1",
+    "location": "Dallas, TX",
+    "body": "$1 (Real Price: $15,000) LOW PAYMENTS!!! EVERYONE APPROVED!!! 🔥🔥🔥 MUST SEE!!! CHEAP!!! BEST DEAL IN TOWN!!! CALL NOW!!!",
+    "note": "Verbatim bait-price car ad quoted in community PSA"
+  },
+  {
+    "id": "web-s-005",
+    "label": "slop",
+    "kind": "bait-price",
+    "source": "https://reddit.com/r/FacebookMarketplace (seller admission thread)",
+    "title": "PRICES IN DESCRIPTION - tools and equipment",
+    "price": "$1",
+    "location": "Columbus, OH",
+    "body": "Prices in description. Drill $45, saw $80, compressor $150. The $1 is just so it shows up in every search.",
+    "note": "Multi-item placeholder-price listing"
+  },
+  {
+    "id": "web-s-006",
+    "label": "slop",
+    "kind": "service-mlm",
+    "source": "transcribed real FBM jobs listing (Avon)",
+    "title": "Independent avon sales rep - Part-time Job - Apply Now",
+    "price": "$0",
+    "location": "Springfield, IL",
+    "body": "Always needing avon sales reps. Wanna join my team?!? Let me know. After rebates your starter kit is basically free.",
+    "note": "MLM recruit post in jobs/marketplace feed"
+  },
+  {
+    "id": "web-s-007",
+    "label": "slop",
+    "kind": "scam-deposit",
+    "source": "https://reddit.com/r/Scams (hijacked-account estate sale post, quoted verbatim)",
+    "title": "Estate sale - everything must go this week",
+    "price": "$1",
+    "location": "Rochester, NY",
+    "body": "Good day everyone ❤️. We're conducting a sale of personal items due to my cousin is moving to care facility, which requires significant downsizing. To manage the volume of interest, a deposit is necessary to hold any item. Deposits are fully refundable and it's first-come, first-serve basis. I'll be out of town but my assistant will coordinate pickup.",
+    "note": "Hijacked-account deposit scam - human-sounding gems + deposit-to-hold"
+  },
+  {
+    "id": "web-s-008",
+    "label": "slop",
+    "kind": "scam-payment-script",
+    "source": "https://reddit.com/r/Scams (full fake-Venmo email quoted)",
+    "title": "Payment confirmation",
+    "price": "$750",
+    "location": "",
+    "body": "$750 ON HOLD DUE TO ZELLE ACCOUNT LIMIT. Dear Valued Customer, we encountered a minor issue when attempting to credit your account. The buyer had to send an additional $300 in order to upgrade your account to a business account. You will be refunded with the payment.",
+    "note": "Fake payment-processor email script (detail-view/tester material)"
+  },
+  {
+    "id": "web-s-009",
+    "label": "slop",
+    "kind": "scam-code-script",
+    "source": "https://reddit.com/r/Scams + FTC Google Voice scam documentation",
+    "title": "Quick question about your listing",
+    "price": "",
+    "location": "",
+    "body": "For my safety, I'm going to send you a code to verify that you're a real person. Give me your phone number and I'll send the code. When you get it, send me the 6-digit code and then I'll call.",
+    "note": "Google Voice verification-code scam script"
+  },
+  {
+    "id": "web-s-010",
+    "label": "slop",
+    "kind": "scam-overpayment-script",
+    "source": "https://reddit.com/r/Scams (mover overpayment script)",
+    "title": "Buying your dresser",
+    "price": "$200",
+    "location": "",
+    "body": "My company just posted me to your neighborhood due to job promotion. I want my movers to pick up the item, I'll pay you now with Zelle including extra for the movers, kindly send the over-payment to them when it clears.",
+    "note": "Overpayment + third-party pickup script"
+  }
+]

@@ -1,0 +1,90 @@
+[
+  {
+    "id": "hw-b-001",
+    "label": "borderline",
+    "kind": "replica-furniture",
+    "source": "handwritten",
+    "title": "Eames style lounge chair replica",
+    "price": "$450",
+    "location": "Toronto, ON",
+    "body": "High quality reproduction, real leather, walnut veneer. Owned 3 years, small scuff on the base.",
+    "note": "Honest design-reproduction furniture: 'replica' here is not fraud. Label/dim acceptable, hide is not ideal."
+  },
+  {
+    "id": "hw-b-002",
+    "label": "borderline",
+    "kind": "luxury-no-receipt",
+    "source": "handwritten",
+    "title": "Gucci belt size 90",
+    "price": "$180",
+    "location": "Toronto, ON",
+    "body": "Bought at Yorkdale a few years ago, don't have the receipt anymore. Normal wear on the buckle.",
+    "note": "Real-world authentic-but-no-proof case; label is fine, hide is not"
+  },
+  {
+    "id": "hw-b-003",
+    "label": "borderline",
+    "kind": "local-craft",
+    "source": "handwritten",
+    "title": "Handmade cutting boards - walnut and maple",
+    "price": "$45",
+    "location": "Toronto, ON",
+    "body": "I make these in my garage as a hobby. Custom orders welcome, takes about a week. Each board is one of a kind.",
+    "note": "Honest local craftsperson; 'custom orders' shouldn't nuke it. Allow or label."
+  },
+  {
+    "id": "hw-b-004",
+    "label": "borderline",
+    "kind": "whatsapp-contact",
+    "source": "handwritten",
+    "title": "Dining table and 6 chairs",
+    "price": "$260",
+    "location": "Toronto, ON",
+    "body": "Good condition, from a clean home. Message me on whatsapp for faster reply 647-555-0155.",
+    "note": "WhatsApp contact preference is common in many communities; label acceptable, hide is not"
+  },
+  {
+    "id": "hw-b-005",
+    "label": "borderline",
+    "kind": "small-flipper",
+    "source": "handwritten",
+    "title": "iPhone 11 64GB - unlocked, warranty",
+    "price": "$180",
+    "location": "Toronto, ON",
+    "body": "Professionally refurbished, 30 day warranty from my shop. Several in stock, different colors. Text 416-555-0177.",
+    "note": "Small local refurb shop: commercial but a real product some users want. Dim/label reasonable, hide is aggressive."
+  },
+  {
+    "id": "hw-b-006",
+    "label": "borderline",
+    "kind": "poshmark-crosspost",
+    "source": "handwritten",
+    "title": "Lululemon Define jacket size 6",
+    "price": "$70",
+    "location": "Toronto, ON",
+    "body": "Also listed on Poshmark, whichever sells first. Excellent condition, no pilling.",
+    "note": "Cross-posting mention is normal reseller behavior for individuals"
+  },
+  {
+    "id": "hw-b-007",
+    "label": "borderline",
+    "kind": "estate-dealer",
+    "source": "handwritten",
+    "title": "Estate sale this weekend - tools, furniture, antiques",
+    "price": "$1",
+    "location": "Toronto, ON",
+    "body": "Estate sale Sat/Sun 9-4, 45 Elm St. Cash only. Everything must go: tools, furniture, china, records.",
+    "note": "$1 placeholder price on a legit estate sale announcement; label acceptable"
+  },
+  {
+    "id": "hw-b-008",
+    "label": "borderline",
+    "kind": "delivery-service-seller",
+    "source": "handwritten",
+    "title": "Sofa - grey, 3 seater",
+    "price": "$275",
+    "location": "Toronto, ON",
+    "body": "Moving sale. I can also deliver same day for $40 within the city, I have a van. Cash on delivery.",
+    "note": "'same day delivery' from an individual with a van - dropship rule should not hide this"
+  }
+]

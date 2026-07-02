@@ -1,0 +1,10 @@
+import "./scoring.test";
+import "./allowTerms.test";
+import "./decisionExport.test";
+import "./decisionSummary.test";
+import "./ruleToggles.test";
+import "./contentDom.test";
+import "./duplicateFlood.test";
+import "./optionsUi.test";
+import "./contentDiagnostics.test";
+import "./diagnostics.test";

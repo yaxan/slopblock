@@ -1,0 +1,468 @@
+:root {
+  color-scheme: light dark;
+  --ink: #251b10;
+  --muted: #6f604b;
+  --paper: #faf6ea;
+  --card: #ffffff;
+  --card-soft: #f4efe0;
+  --sage: #2f4a31;
+  --sage-soft: #e4ecdf;
+  --clay: #b8502a;
+  --line: rgba(37, 27, 16, 0.12);
+  --shadow: 0 1px 2px rgba(37, 27, 16, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #efe8da;
+    --muted: #a89a85;
+    --paper: #201b14;
+    --card: #2a241b;
+    --card-soft: #332c21;
+    --sage: #8fb392;
+    --sage-soft: #37412f;
+    --clay: #e08256;
+    --line: rgba(239, 232, 218, 0.14);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  width: 400px;
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 500 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.shell {
+  padding: 14px 14px 10px;
+}
+
+/* ---- header ---- */
+
+.brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 2px 2px 12px;
+}
+
+.brand-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255, 244, 214, 0.9), transparent 42%),
+    linear-gradient(150deg, #46683f, #2f4a31);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), var(--shadow);
+  position: relative;
+}
+
+.brand-mark::after {
+  content: "";
+  position: absolute;
+  inset: 10px 9px 9px 10px;
+  border-radius: 4px;
+  background: rgba(255, 247, 223, 0.92);
+  clip-path: polygon(0 0, 100% 0, 100% 62%, 50% 100%, 0 62%);
+}
+
+h1 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.brand-sub {
+  margin: 1px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+h2 {
+  font-size: 12px;
+}
+
+/* ---- panels ---- */
+
+.panel {
+  margin: 0 0 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.panel-heading-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.panel-title {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.panel-heading .panel-title {
+  margin-bottom: 8px;
+}
+
+.panel-note {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+/* ---- toggle switch ---- */
+
+.toggle {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 40px;
+  height: 24px;
+}
+
+.toggle input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--line);
+  transition: background 0.15s ease;
+}
+
+.toggle-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--card);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease;
+}
+
+.toggle input:checked + .toggle-track {
+  background: var(--sage);
+}
+
+.toggle input:checked + .toggle-track::after {
+  transform: translateX(16px);
+}
+
+.toggle input:indeterminate + .toggle-track {
+  background: color-mix(in srgb, var(--sage) 50%, var(--line));
+}
+
+.toggle input:indeterminate + .toggle-track::after {
+  transform: translateX(8px);
+}
+
+.toggle input:focus-visible + .toggle-track {
+  outline: 2px solid var(--clay);
+  outline-offset: 2px;
+}
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ---- segmented control ---- */
+
+.field {
+  margin-bottom: 10px;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--card-soft);
+}
+
+.segmented label {
+  position: relative;
+  display: block;
+  cursor: pointer;
+}
+
+.segmented input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.segmented span {
+  display: block;
+  padding: 6px 4px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.segmented input:checked + span {
+  background: var(--sage);
+  color: #fff7df;
+  box-shadow: var(--shadow);
+}
+
+.segmented input:focus-visible + span {
+  outline: 2px solid var(--clay);
+  outline-offset: 1px;
+}
+
+#modeHint {
+  margin: 6px 1px 0;
+}
+
+/* ---- page summary ---- */
+
+.page-summary {
+  display: grid;
+  gap: 10px;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.stat {
+  padding: 8px 6px;
+  border-radius: 10px;
+  background: var(--card-soft);
+  text-align: center;
+}
+
+.stat strong {
+  display: block;
+  font-size: 17px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat span {
+  color: var(--muted);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.summary-block {
+  display: grid;
+  gap: 6px;
+}
+
+.summary-title {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.summary-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.summary-list li {
+  padding: 8px 9px;
+  border-radius: 10px;
+  background: var(--card-soft);
+}
+
+.summary-list strong,
+.summary-list a {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary-list a:hover {
+  text-decoration: underline;
+}
+
+.summary-list span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.summary-list code {
+  display: block;
+  margin-top: 3px;
+  color: var(--clay);
+  font-size: 10px;
+  word-break: break-word;
+}
+
+.summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.summary-actions button {
+  padding: 5px 9px;
+  font-size: 10.5px;
+}
+
+/* ---- quick toggles ---- */
+
+.quick-toggles {
+  display: grid;
+  gap: 4px;
+}
+
+.quick-toggle {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 9px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.quick-toggle:hover {
+  background: var(--card-soft);
+}
+
+.quick-toggle strong {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.quick-toggle span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+/* ---- buttons & footer ---- */
+
+button,
+.footer a {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 12px;
+  background: var(--sage);
+  color: #fff7df;
+  text-align: center;
+  text-decoration: none;
+  font: 600 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  cursor: pointer;
+}
+
+button[data-variant="quiet"],
+.footer button {
+  background: var(--card);
+  color: var(--sage);
+}
+
+button:hover {
+  filter: brightness(1.05);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.footer a {
+  margin-left: auto;
+  background: var(--sage);
+  color: #fff7df;
+}
+
+@media (prefers-color-scheme: dark) {
+  .footer a,
+  button:not([data-variant="quiet"]):not(.footer button) {
+    color: #1c2618;
+  }
+}
+
+.status {
+  min-height: 16px;
+  margin: 8px 4px 0;
+  color: var(--muted);
+  font-size: 11.5px;
+}

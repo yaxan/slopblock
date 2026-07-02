@@ -1,0 +1,29 @@
+{
+  "name": "slopblock",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Local-first Chrome extension for filtering Facebook Marketplace slop.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:dev": "node scripts/build.mjs --dev",
+    "diagnostics": "node scripts/analyze-diagnostics.mjs",
+    "eval": "node scripts/run-eval.mjs",
+    "eval:gate": "node scripts/run-eval.mjs --gate",
+    "package": "npm run verify && node scripts/package-extension.mjs",
+    "test": "npm run typecheck && node scripts/run-tests.mjs",
+    "typecheck": "tsc --noEmit",
+    "verify": "npm test && npm run eval:gate && npm run build && npm audit --omit=optional && node scripts/verify-extension.mjs",
+    "e2e": "npm run build && node e2e/run.mjs"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.280",
+    "@types/jsdom": "^28.0.3",
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.28.1",
+    "jsdom": "^29.1.1",
+    "playwright": "^1.61.1",
+    "playwright-core": "^1.61.1",
+    "typescript": "^5.7.2"
+  }
+}

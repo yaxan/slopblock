@@ -1,0 +1,552 @@
+import { allowTermFromTitle } from "../common/allowTerms";
+import { fingerprintText, scoreListing } from "../common/scoring";
+import { controlRuleIdForMatch } from "../common/ruleToggles";
+import { STORAGE_KEY, normalizeSettings } from "../common/settings";
+import { loadSettings, saveSettings } from "../common/storage";
+import { toContentDecision } from "./diagnostics";
+import { analyzeDuplicateFlood } from "./duplicateFlood";
+import {
+  SLOPBLOCK_SELECTOR,
+  extractCleanText,
+  extractListingSnapshot,
+  isMarketplaceSellerProfileContext
+} from "./dom";
+import type {
+  ContentMessage,
+  ContentStats,
+  ListingSnapshot,
+  ScoreContext,
+  ScoreResult,
+  SlopBlockSettings
+} from "../common/types";
+
+const PROCESSED_ATTR = "data-slopblock-processed";
+const ORIGINAL_DISPLAY_ATTR = "data-slopblock-original-display";
+const ORIGINAL_POSITION_ATTR = "data-slopblock-original-position";
+
+let settings: SlopBlockSettings | null = null;
+let showHidden = false;
+let scanTimer: number | undefined;
+let stats: ContentStats = { scanned: 0, hidden: 0, dimmed: 0, labeled: 0 };
+let lastDecisions: ReturnType<typeof toContentDecision>[] = [];
+
+void init();
+
+async function init(): Promise<void> {
+  settings = await loadSettings();
+  createToolbar();
+  scheduleScan();
+  observeMarketplace();
+  installRuntimeListeners();
+}
+
+function observeMarketplace(): void {
+  const observer = new MutationObserver((mutations) => {
+    if (mutations.every(isSlopBlockMutation)) {
+      return;
+    }
+
+    scheduleScan();
+  });
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+}
+
+function installRuntimeListeners(): void {
+  chrome.runtime.onMessage.addListener((message: ContentMessage, _sender, sendResponse) => {
+    if (message.type === "SLOPBLOCK_RESCAN") {
+      scheduleScan(0);
+      sendResponse({ ok: true });
+      return false;
+    }
+
+    if (message.type === "SLOPBLOCK_SET_SHOW_HIDDEN") {
+      showHidden = message.showHidden;
+      scheduleScan(0);
+      sendResponse({ ok: true, showHidden });
+      return false;
+    }
+
+    if (message.type === "SLOPBLOCK_GET_STATS") {
+      sendResponse({ ok: true, stats, showHidden });
+      return false;
+    }
+
+    if (message.type === "SLOPBLOCK_EXPORT_DECISIONS") {
+      sendResponse({ ok: true, stats, showHidden, decisions: lastDecisions });
+      return false;
+    }
+
+    return false;
+  });
+
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== "local" || !changes[STORAGE_KEY]) {
+      return;
+    }
+
+    settings = normalizeSettings(changes[STORAGE_KEY].newValue);
+    scheduleScan(0);
+  });
+}
+
+function scheduleScan(delay = 180): void {
+  window.clearTimeout(scanTimer);
+  scanTimer = window.setTimeout(() => rescanMarketplace(), delay);
+}
+
+function rescanMarketplace(): void {
+  if (!settings) {
+    return;
+  }
+
+  const isSellerProfileContext = isMarketplaceSellerProfileContext(window.location.href);
+  const cards = collectListingCards();
+  const snapshots = cards.map(({ card, anchor }) => ({ card, snapshot: extractListingSnapshot(card, anchor) }));
+  const duplicateInfos = isSellerProfileContext ? [] : analyzeDuplicateFlood(snapshots.map(({ snapshot }) => snapshot));
+
+  stats = { scanned: snapshots.length, hidden: 0, dimmed: 0, labeled: 0 };
+  lastDecisions = [];
+
+  for (const [index, { card, snapshot }] of snapshots.entries()) {
+    const context: ScoreContext = { isSellerProfileContext };
+    const duplicate = duplicateInfos[index];
+    if (duplicate) {
+      context.duplicate = duplicate;
+    }
+
+    const result = scoreListing(snapshot, settings, context);
+    lastDecisions.push(toContentDecision(snapshot, result));
+    applyScore(card, result, snapshot);
+  }
+
+  updateToolbar();
+}
+
+const ITEM_ANCHOR_SELECTOR =
+  'a[href*="/marketplace/item/"], a[href*="/marketplace/shops/item/"], a[href*="/marketplace/np/item/"]';
+
+function collectListingCards(): Array<{ card: HTMLElement; anchor: HTMLAnchorElement }> {
+  const anchors = Array.from(document.querySelectorAll<HTMLAnchorElement>(ITEM_ANCHOR_SELECTOR));
+  const seen = new Set<HTMLElement>();
+  const cards: Array<{ card: HTMLElement; anchor: HTMLAnchorElement }> = [];
+
+  for (const anchor of anchors) {
+    const card = findCardContainer(anchor);
+    if (!card || seen.has(card) || card.closest(".slopblock-toolbar")) {
+      continue;
+    }
+
+    seen.add(card);
+    cards.push({ card, anchor });
+  }
+
+  for (const { card, anchor } of collectSponsoredAdCells(seen)) {
+    seen.add(card);
+    cards.push({ card, anchor });
+  }
+
+  return cards;
+}
+
+/**
+ * Sponsored Marketplace cells often link to l.facebook.com or an advertiser
+ * site instead of /marketplace/item/, so the item-anchor scan never sees
+ * them. Find them via their ad-disclosure link plus a standalone
+ * "Sponsored" text line.
+ */
+function collectSponsoredAdCells(alreadySeen: Set<HTMLElement>): Array<{ card: HTMLElement; anchor: HTMLAnchorElement }> {
+  const adAnchors = Array.from(
+    document.querySelectorAll<HTMLAnchorElement>(
+      'a[href*="/ads/about"], a[href*="l.facebook.com/l.php"], a[href^="https://l.facebook.com"]'
+    )
+  );
+  const cells: Array<{ card: HTMLElement; anchor: HTMLAnchorElement }> = [];
+  const seen = new Set<HTMLElement>(alreadySeen);
+
+  for (const anchor of adAnchors) {
+    const cell = findSponsoredCell(anchor);
+    if (!cell || seen.has(cell) || cell.closest(".slopblock-toolbar")) {
+      continue;
+    }
+
+    seen.add(cell);
+    cells.push({ card: cell, anchor });
+  }
+
+  return cells;
+}
+
+function findSponsoredCell(anchor: HTMLAnchorElement): HTMLElement | null {
+  // Once processed (possibly display:none with a zero rect), keep the same cell.
+  const processedAncestor = anchor.closest<HTMLElement>(`[${PROCESSED_ATTR}]`);
+  if (processedAncestor) {
+    return processedAncestor;
+  }
+
+  let node: HTMLElement | null = anchor;
+  let candidate: HTMLElement | null = null;
+
+  // Climb to the outermost element that still contains only this ad unit
+  // (a standalone Sponsored line, no organic item links) so the whole grid
+  // cell hides instead of leaving an empty shell.
+  for (let depth = 0; node && node !== document.body && depth < 9; depth += 1) {
+    const { visibleText, lines } = extractCleanText(node);
+    if (visibleText.length > 1400 || node.querySelector(ITEM_ANCHOR_SELECTOR) !== null) {
+      break;
+    }
+
+    const hasSponsoredLine = lines.some((line) => /^sponsored$/i.test(line.trim()));
+    if (hasSponsoredLine) {
+      const rect = node.getBoundingClientRect();
+      if (rect.width >= 90 && rect.height >= 70 && visibleText.length >= 8) {
+        candidate = node;
+      }
+    }
+
+    node = node.parentElement;
+  }
+
+  return candidate;
+}
+
+function findCardContainer(anchor: HTMLAnchorElement): HTMLElement | null {
+  const processedAncestor = anchor.closest<HTMLElement>(`[${PROCESSED_ATTR}]`);
+  if (processedAncestor) {
+    return processedAncestor;
+  }
+
+  let node: HTMLElement | null = anchor;
+  let candidate: HTMLElement | null = anchor;
+
+  for (let depth = 0; node && node !== document.body && depth < 9; depth += 1) {
+    const text = extractCleanText(node).visibleText;
+    const marketplaceLinks = node.querySelectorAll(ITEM_ANCHOR_SELECTOR).length;
+    const rect = node.getBoundingClientRect();
+    const isPlausibleCard =
+      marketplaceLinks >= 1 &&
+      marketplaceLinks <= 3 &&
+      text.length >= 8 &&
+      text.length <= 1200 &&
+      rect.width >= 90 &&
+      rect.height >= 70;
+
+    if (isPlausibleCard) {
+      candidate = node;
+    }
+
+    if (marketplaceLinks > 3 || text.length > 1400) {
+      break;
+    }
+
+    node = node.parentElement;
+  }
+
+  return candidate;
+}
+
+function applyScore(card: HTMLElement, result: ScoreResult, snapshot: ListingSnapshot): void {
+  rememberOriginalStyles(card);
+  const signature = scoreSignature(result, snapshot);
+  const signatureChanged = card.dataset.slopblockSignature !== signature;
+
+  if (signatureChanged) {
+    clearCardState(card);
+  }
+
+  card.setAttribute(PROCESSED_ATTR, result.action);
+  card.dataset.slopblockScore = String(result.score);
+  card.dataset.slopblockSignature = signature;
+
+  applyVisualState(card, result);
+
+  if (result.action === "allow") {
+    removeBadge(card);
+    return;
+  }
+
+  countResult(result.action);
+
+  if (result.action === "hide" && !showHidden) {
+    removeBadge(card);
+    return;
+  }
+
+  if (settings?.showReasons && (signatureChanged || !card.querySelector(":scope > .slopblock-badge"))) {
+    removeBadge(card);
+    addBadge(card, result, snapshot);
+  } else if (!settings?.showReasons) {
+    removeBadge(card);
+  }
+}
+
+function rememberOriginalStyles(card: HTMLElement): void {
+  if (!card.hasAttribute(ORIGINAL_DISPLAY_ATTR)) {
+    card.setAttribute(ORIGINAL_DISPLAY_ATTR, card.style.display);
+  }
+
+  if (!card.hasAttribute(ORIGINAL_POSITION_ATTR)) {
+    card.setAttribute(ORIGINAL_POSITION_ATTR, card.style.position);
+  }
+}
+
+function restoreDisplay(card: HTMLElement): void {
+  card.style.display = card.getAttribute(ORIGINAL_DISPLAY_ATTR) ?? "";
+}
+
+function clearCardState(card: HTMLElement): void {
+  restoreDisplay(card);
+  card.classList.remove("slopblock-dim", "slopblock-label", "slopblock-hidden-preview");
+  removeBadge(card);
+}
+
+function applyVisualState(card: HTMLElement, result: ScoreResult): void {
+  restoreDisplay(card);
+  card.classList.remove("slopblock-dim", "slopblock-label", "slopblock-hidden-preview");
+
+  if (result.action === "hide") {
+    if (showHidden) {
+      ensurePositioned(card);
+      card.classList.add("slopblock-hidden-preview");
+    } else {
+      card.style.display = "none";
+    }
+    return;
+  }
+
+  if (result.action === "dim") {
+    ensurePositioned(card);
+    card.classList.add("slopblock-dim");
+    return;
+  }
+
+  if (result.action === "label") {
+    card.classList.add("slopblock-label");
+  }
+}
+
+/** The fade overlay and badge are absolutely positioned inside the card. */
+function ensurePositioned(card: HTMLElement): void {
+  const originalPosition = card.getAttribute(ORIGINAL_POSITION_ATTR) ?? card.style.position;
+  if (!originalPosition || originalPosition === "static") {
+    card.style.position = "relative";
+  }
+}
+
+function countResult(action: ScoreResult["action"]): void {
+  if (action === "hide") {
+    stats.hidden += 1;
+  } else if (action === "dim") {
+    stats.dimmed += 1;
+  } else if (action === "label") {
+    stats.labeled += 1;
+  }
+}
+
+function scoreSignature(result: ScoreResult, snapshot: ListingSnapshot): string {
+  const reasons = result.matches
+    .filter((match) => match.weight > 0)
+    .slice(0, 4)
+    .map((match) => `${match.ruleId}:${match.weight}`)
+    .join(",");
+  const listingIdentity = snapshot.idHint ?? fingerprintText(snapshot.title || snapshot.visibleText).slice(0, 80);
+
+  return [listingIdentity, result.action, result.score, showHidden, settings?.showReasons === true, reasons].join("|");
+}
+
+function addBadge(card: HTMLElement, result: ScoreResult, snapshot: ListingSnapshot): void {
+  ensurePositioned(card);
+
+  const badge = document.createElement("div");
+  badge.className = "slopblock-badge";
+  const positiveMatches = result.matches.filter((match) => match.weight > 0);
+  const reasons = positiveMatches
+    .slice(0, 3)
+    .map((match) => match.reason)
+    .join(" + ");
+  const summary = document.createElement("div");
+  summary.className = "slopblock-badge-summary";
+  summary.textContent = `SlopBlock ${result.score}: ${reasons || result.action}`;
+  badge.append(summary);
+
+  const topRuleId = controlRuleIdForMatch(positiveMatches[0]?.ruleId);
+  const titleAllowTerm = allowTermFromTitle(snapshot.title);
+  if (topRuleId || snapshot.idHint || titleAllowTerm) {
+    const actions = document.createElement("div");
+    actions.className = "slopblock-badge-actions";
+
+    if (snapshot.idHint || titleAllowTerm) {
+      const allowButton = document.createElement("button");
+      allowButton.type = "button";
+      allowButton.textContent = snapshot.idHint ? "Allow item" : "Allow title";
+      allowButton.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void allowListing(snapshot);
+      });
+      actions.append(allowButton);
+    }
+
+    if (topRuleId) {
+      const disableRuleButton = document.createElement("button");
+      disableRuleButton.type = "button";
+      disableRuleButton.textContent = "Disable top rule";
+      disableRuleButton.title = topRuleId;
+      disableRuleButton.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void disableRule(topRuleId);
+      });
+      actions.append(disableRuleButton);
+    }
+
+    badge.append(actions);
+  }
+
+  card.prepend(badge);
+}
+
+function removeBadge(card: HTMLElement): void {
+  card.querySelectorAll(":scope > .slopblock-badge").forEach((badge) => badge.remove());
+  const originalPosition = card.getAttribute(ORIGINAL_POSITION_ATTR);
+  const stillNeedsPosition =
+    card.classList.contains("slopblock-dim") || card.classList.contains("slopblock-hidden-preview");
+  if (originalPosition !== null && !stillNeedsPosition) {
+    card.style.position = originalPosition;
+  }
+}
+
+async function allowListing(snapshot: ListingSnapshot): Promise<void> {
+  if (!settings) {
+    return;
+  }
+
+  const itemId = snapshot.idHint;
+  const titleTerm = allowTermFromTitle(snapshot.title);
+  if (!itemId && !titleTerm) {
+    return;
+  }
+
+  settings = normalizeSettings({
+    ...settings,
+    customAllowItemIds: itemId ? [...settings.customAllowItemIds, itemId] : settings.customAllowItemIds,
+    customAllowTerms: itemId ? settings.customAllowTerms : [...settings.customAllowTerms, titleTerm]
+  });
+  await saveSettings(settings);
+  scheduleScan(0);
+}
+
+async function disableRule(ruleId: string): Promise<void> {
+  if (!settings) {
+    return;
+  }
+
+  settings = normalizeSettings({
+    ...settings,
+    disabledRuleIds: [...settings.disabledRuleIds, ruleId]
+  });
+  await saveSettings(settings);
+  scheduleScan(0);
+}
+
+function createToolbar(): void {
+  if (document.querySelector(".slopblock-toolbar")) {
+    return;
+  }
+
+  const toolbar = document.createElement("div");
+  toolbar.className = "slopblock-toolbar";
+  toolbar.dataset.collapsed = "true";
+  toolbar.innerHTML = `
+    <button type="button" class="slopblock-pill" data-slopblock-action="toggle-panel" title="SlopBlock — click for details">
+      <span class="slopblock-pill-mark"></span>
+      <span class="slopblock-pill-text"><span data-slopblock-stat="filtered">0</span> filtered</span>
+    </button>
+    <div class="slopblock-panel">
+      <div class="slopblock-toolbar-row"><span>Scanned</span><span data-slopblock-stat="scanned">0</span></div>
+      <div class="slopblock-toolbar-row"><span>Hidden</span><span data-slopblock-stat="hidden">0</span></div>
+      <div class="slopblock-toolbar-row"><span>Dimmed</span><span data-slopblock-stat="dimmed">0</span></div>
+      <div class="slopblock-toolbar-row"><span>Labeled</span><span data-slopblock-stat="labeled">0</span></div>
+      <div class="slopblock-toolbar-actions">
+        <button type="button" data-slopblock-action="toggle-hidden">Show hidden</button>
+        <button type="button" data-slopblock-action="rescan" data-variant="quiet">Rescan</button>
+      </div>
+      <div class="slopblock-toolbar-hint">Details &amp; controls in the SlopBlock popup</div>
+    </div>
+  `;
+
+  toolbar.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const button = target.closest<HTMLButtonElement>("button[data-slopblock-action]");
+    if (!button) {
+      return;
+    }
+
+    const action = button.dataset.slopblockAction;
+    if (action === "toggle-panel") {
+      toolbar.dataset.collapsed = toolbar.dataset.collapsed === "true" ? "false" : "true";
+    }
+
+    if (action === "toggle-hidden") {
+      showHidden = !showHidden;
+      button.textContent = showHidden ? "Hide again" : "Show hidden";
+      scheduleScan(0);
+    }
+
+    if (action === "rescan") {
+      scheduleScan(0);
+    }
+  });
+
+  document.documentElement.append(toolbar);
+}
+
+function updateToolbar(): void {
+  const toolbar = document.querySelector<HTMLElement>(".slopblock-toolbar");
+  if (!toolbar) {
+    return;
+  }
+
+  // Nothing scanned (e.g. item detail pages) -> keep the pill out of the way.
+  toolbar.style.display = stats.scanned > 0 ? "" : "none";
+
+  const filtered = stats.hidden + stats.dimmed + stats.labeled;
+  const entries: Record<string, number> = { ...stats, filtered };
+  for (const [key, value] of Object.entries(entries)) {
+    const node = toolbar.querySelector(`[data-slopblock-stat="${key}"]`);
+    if (node) {
+      node.textContent = String(value);
+    }
+  }
+
+  toolbar.dataset.active = filtered > 0 ? "true" : "false";
+
+  const toggleButton = toolbar.querySelector<HTMLButtonElement>('[data-slopblock-action="toggle-hidden"]');
+  if (toggleButton) {
+    toggleButton.textContent = showHidden ? "Hide again" : "Show hidden";
+  }
+}
+
+function isSlopBlockMutation(mutation: MutationRecord): boolean {
+  if (isSlopBlockNode(mutation.target)) {
+    return true;
+  }
+
+  const changedNodes = [...Array.from(mutation.addedNodes), ...Array.from(mutation.removedNodes)];
+  return changedNodes.length > 0 && changedNodes.every(isSlopBlockNode);
+}
+
+function isSlopBlockNode(node: Node): boolean {
+  if (node instanceof Element) {
+    return node.matches(SLOPBLOCK_SELECTOR) || node.closest(SLOPBLOCK_SELECTOR) !== null;
+  }
+
+  return node.parentElement?.closest(SLOPBLOCK_SELECTOR) !== null;
+}

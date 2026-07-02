@@ -1,0 +1,344 @@
+// End-to-end test: loads the built extension into real Chrome and fulfills
+// https://www.facebook.com/marketplace requests with a high-fidelity fixture
+// via Playwright request interception (no network, no real Facebook), then
+// verifies hiding, collapsing, badges, toolbar, settings sync, popup, and
+// options behavior in the live browser.
+//
+// Usage: npm run e2e  (builds first)   |   node e2e/run.mjs --headed
+import { chromium } from "playwright";
+import { createHash, generateKeyPairSync } from "node:crypto";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { renderCell, renderGridSection, renderMarketplacePage } from "./fixture.mjs";
+
+const HEADED = process.argv.includes("--headed");
+const ROOT = new URL("..", import.meta.url).pathname;
+const WORK = join(tmpdir(), `slopblock-e2e-${process.pid}`);
+
+let passed = 0;
+let failed = 0;
+const failures = [];
+
+function check(name, condition, detail = "") {
+  if (condition) {
+    passed += 1;
+    console.log(`  ok   ${name}`);
+  } else {
+    failed += 1;
+    failures.push(name);
+    console.log(`  FAIL ${name}${detail ? ` — ${detail}` : ""}`);
+  }
+}
+
+// ---------- fixture scenario ----------
+
+const FEED_CARDS = [
+  { id: "9001", title: "IKEA Kallax 4x4 shelf white", price: "$60", location: "Toronto, ON" },
+  { id: "9002", title: "Amazon Echo Dot 4th gen", price: "$25", location: "Toronto, ON", justListed: true },
+  { id: "9003", title: "2015 Honda Civic LX", price: "CA$9,500", oldPrice: "CA$11,000", location: "Toronto, ON", extra: "142K km" },
+  { id: "9004", title: "Free couch pickup today", price: "Free", location: "Scarborough, ON" },
+  { id: "9005", title: "Solid wood dresser vintage", price: "$120", location: "Toronto, ON", np: true },
+  { id: "9006", title: "", price: "$45", location: "Toronto, ON", emptyTitle: true, ariaLabel: false },
+  { id: "9007", title: "ISO free couch for student apartment", price: "$1", location: "Toronto, ON" },
+  { id: "9008", title: "SOLD - dining table oak", price: "$150", location: "Toronto, ON" },
+  { id: "9009", title: "Outdoor sofa set clearance", price: "$399", location: "", sponsoredLine: true },
+  { id: "ad-1", title: "Luxury watches 90% off", price: "$29", adCell: true, adUrl: "https://replicawatch.example/deals" },
+  // duplicate flood: same title+price+location, 5 distinct ids
+  { id: "7001", title: "Ergonomic Gaming Chair Racing Style", price: "$149", location: "Toronto, ON" },
+  { id: "7002", title: "Ergonomic Gaming Chair Racing Style", price: "$149", location: "Toronto, ON" },
+  { id: "7003", title: "Ergonomic Gaming Chair Racing Style", price: "$149", location: "Toronto, ON" },
+  { id: "7004", title: "Ergonomic Gaming Chair Racing Style", price: "$149", location: "Toronto, ON" },
+  { id: "7005", title: "Ergonomic Gaming Chair Racing Style", price: "$149", location: "Toronto, ON" },
+  // search-style same-title different prices: must all stay
+  { id: "8001", title: "iPhone 12 128GB unlocked", price: "$250", location: "Toronto, ON" },
+  { id: "8002", title: "iPhone 12 128GB unlocked", price: "$280", location: "Mississauga, ON" },
+  { id: "8003", title: "iPhone 12 128GB unlocked", price: "$310", location: "Toronto, ON" },
+  { id: "8004", title: "iPhone 12 128GB unlocked", price: "$199", location: "Brampton, ON" },
+  { id: "v-1", virtualized: true }
+];
+
+const SCROLL_CARDS = [
+  { id: "7006", title: "Ergonomic Gaming Chair Racing Style", price: "$149", location: "Toronto, ON" },
+  { id: "7007", title: "Ergonomic Gaming Chair Racing Style", price: "$149", location: "Toronto, ON" },
+  { id: "9101", title: "Peloton bike works perfectly", price: "$400", location: "Toronto, ON" },
+  { id: "9102", title: "Graco 4Ever car seat", price: "$50", location: "Ajax, ON" }
+];
+
+function feedHtml() {
+  return renderMarketplacePage([renderGridSection(FEED_CARDS, { heading: "Today's picks" })]);
+}
+
+// ---------- infra ----------
+
+const PNG_1PX = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "base64"
+);
+
+async function installRoutes(context) {
+  await context.route("https://www.facebook.com/**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.startsWith("/img/")) {
+      await route.fulfill({ status: 200, contentType: "image/png", body: PNG_1PX });
+      return;
+    }
+
+    if (url.pathname.startsWith("/marketplace")) {
+      await route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: feedHtml() });
+      return;
+    }
+
+    await route.fulfill({ status: 404, contentType: "text/plain", body: "not found" });
+  });
+}
+
+function prepareExtension() {
+  const source = join(ROOT, "dist");
+  if (!existsSync(join(source, "manifest.json"))) {
+    throw new Error("dist/ missing — run npm run build first");
+  }
+
+  const target = join(WORK, "extension");
+  cpSync(source, target, { recursive: true });
+
+  // Pin the extension ID by injecting a key into the TEST COPY only.
+  const { publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const der = publicKey.export({ type: "spki", format: "der" });
+  const manifest = JSON.parse(readFileSync(join(target, "manifest.json"), "utf8"));
+  manifest.key = der.toString("base64");
+  writeFileSync(join(target, "manifest.json"), JSON.stringify(manifest, null, 2));
+
+  const hash = createHash("sha256").update(der).digest("hex").slice(0, 32);
+  const extensionId = [...hash].map((ch) => String.fromCharCode(97 + Number.parseInt(ch, 16))).join("");
+  return { dir: target, id: extensionId };
+}
+
+async function cardStates(page) {
+  return page.evaluate(() => {
+    const states = {};
+    for (const card of document.querySelectorAll("[data-slopblock-processed]")) {
+      const anchor =
+        (card.matches("a[href]") ? card : null) ??
+        card.querySelector('a[href*="/marketplace/"]') ??
+        card.querySelector("a[href]");
+      const idMatch = anchor?.getAttribute("href")?.match(/\/marketplace\/(?:np\/)?item\/([^/?#]+)/);
+      const key = idMatch?.[1] ?? (anchor?.href?.includes("l.facebook.com") ? "ad-1" : "unknown");
+      states[key] = {
+        action: card.getAttribute("data-slopblock-processed"),
+        displayNone: getComputedStyle(card).display === "none",
+        hasBadge: card.querySelector(":scope > .slopblock-badge") !== null
+      };
+    }
+    return states;
+  });
+}
+
+async function waitForScan(page, minScanned) {
+  try {
+    await page.waitForFunction(
+      (min) => {
+        const stat = document.querySelector('[data-slopblock-stat="scanned"]');
+        return stat && Number(stat.textContent) >= min;
+      },
+      minScanned,
+      { timeout: 20000 }
+    );
+  } catch (error) {
+    const debug = await page.evaluate(() => ({
+      scanned: document.querySelector('[data-slopblock-stat="scanned"]')?.textContent,
+      processed: Array.from(document.querySelectorAll("[data-slopblock-processed]")).map((el) => {
+        const ids = Array.from(el.querySelectorAll('a[href*="/marketplace/"]')).map(
+          (a) => a.getAttribute("href")?.match(/item\/([^/?#]+)/)?.[1] ?? "?"
+        );
+        return `${el.tagName}:${ids.join("+") || "none"}:${el.getAttribute("data-slopblock-processed")}`;
+      })
+    }));
+    console.log(`  waitForScan(${minScanned}) timeout — ${JSON.stringify(debug, null, 1)}`);
+    throw error;
+  }
+}
+
+// ---------- main ----------
+
+rmSync(WORK, { recursive: true, force: true });
+mkdirSync(WORK, { recursive: true });
+
+const extension = prepareExtension();
+console.log(`extension id: ${extension.id}`);
+
+const context = await chromium.launchPersistentContext(join(WORK, "profile"), {
+  headless: !HEADED,
+  channel: "chromium",
+  viewport: { width: 1440, height: 1000 },
+  ignoreHTTPSErrors: true,
+  ignoreDefaultArgs: ["--disable-extensions", "--enable-automation"],
+  args: [
+    "--no-first-run",
+    "--no-default-browser-check",
+    `--disable-extensions-except=${extension.dir}`,
+    `--load-extension=${extension.dir}`,
+    "--test-type"
+  ]
+});
+
+await installRoutes(context);
+
+try {
+  const page = await context.newPage();
+
+  console.log("\n== feed scan ==");
+  await page.goto("https://www.facebook.com/marketplace/", { waitUntil: "domcontentloaded" });
+  try {
+    await waitForScan(page, 19);
+  } catch (error) {
+    const debug = await page.evaluate(() => ({
+      title: document.title,
+      url: location.href,
+      cards: document.querySelectorAll('a[href*="/marketplace/item/"]').length,
+      toolbar: document.querySelector(".slopblock-toolbar") !== null,
+      processed: document.querySelectorAll("[data-slopblock-processed]").length
+    }));
+    console.log("DEBUG:", JSON.stringify(debug));
+    throw error;
+  }
+  await page.waitForTimeout(400);
+  let states = await cardStates(page);
+
+  check("legit IKEA card stays visible", states["9001"]?.action === "allow" && !states["9001"]?.displayNone);
+  check("legit Amazon Echo card stays visible", states["9002"]?.action === "allow");
+  check("strikethrough-price car card stays visible", states["9003"]?.action === "allow");
+  check("free couch card stays visible", states["9004"]?.action === "allow");
+  check("np/item URL variant is scanned and stays visible", states["9005"]?.action === "allow");
+  check("empty-title card stays visible", states["9006"]?.action === "allow");
+  check("ISO post is hidden", states["9007"]?.action === "hide" && states["9007"]?.displayNone, JSON.stringify(states["9007"]));
+  check("SOLD post is hidden", states["9008"]?.action === "hide" && states["9008"]?.displayNone);
+  check("sponsored organic-style card is hidden", states["9009"]?.action === "hide");
+  check("external sponsored ad cell is hidden", states["ad-1"]?.action === "hide" && states["ad-1"]?.displayNone, JSON.stringify(states["ad-1"]));
+
+  const floodStates = ["7001", "7002", "7003", "7004", "7005"].map((id) => states[id]);
+  check(
+    "flood: first occurrence stays visible",
+    floodStates[0]?.action === "allow" && !floodStates[0]?.displayNone,
+    JSON.stringify(floodStates[0])
+  );
+  check(
+    "flood: repeats are hidden",
+    floodStates.slice(1).every((state) => state?.action === "hide" && state?.displayNone),
+    JSON.stringify(floodStates)
+  );
+  check(
+    "search-style same-title different-price cards all stay visible",
+    ["8001", "8002", "8003", "8004"].every((id) => states[id]?.action === "allow" && !states[id]?.displayNone)
+  );
+
+  const toolbarStats = await page.evaluate(() => ({
+    scanned: Number(document.querySelector('[data-slopblock-stat="scanned"]')?.textContent),
+    hidden: Number(document.querySelector('[data-slopblock-stat="hidden"]')?.textContent)
+  }));
+  check("toolbar reports scans", toolbarStats.scanned >= 19, JSON.stringify(toolbarStats));
+  check("toolbar reports hidden count", toolbarStats.hidden >= 8, JSON.stringify(toolbarStats));
+
+  console.log("\n== infinite scroll append ==");
+  const scrollHtml = renderGridSection(SCROLL_CARDS, { heading: "More listings" });
+  await page.evaluate((html) => {
+    document.getElementById("grid-sections")?.insertAdjacentHTML("beforeend", html);
+  }, scrollHtml);
+  await waitForScan(page, 23);
+  await page.waitForTimeout(400);
+  states = await cardStates(page);
+  check("appended legit cards stay visible", states["9101"]?.action === "allow" && states["9102"]?.action === "allow");
+  check(
+    "appended flood repeats are hidden",
+    states["7006"]?.action === "hide" && states["7007"]?.action === "hide",
+    JSON.stringify([states["7006"], states["7007"]])
+  );
+  check("original first flood card still visible after append", states["7001"]?.action === "allow");
+
+  console.log("\n== show hidden + badges + allow item ==");
+  await page.click('[data-slopblock-action="toggle-panel"]');
+  await page.click('[data-slopblock-action="toggle-hidden"]');
+  await page.waitForTimeout(600);
+  states = await cardStates(page);
+  check("show-hidden previews hidden cards", states["9007"]?.displayNone === false, JSON.stringify(states["9007"]));
+  check("badges appear on previewed cards", states["9007"]?.hasBadge === true);
+
+  const allowClicked = await page.evaluate(() => {
+    for (const card of document.querySelectorAll('[data-slopblock-processed="hide"]')) {
+      const anchor = card.querySelector('a[href*="/marketplace/item/9007"]');
+      if (!anchor) {
+        continue;
+      }
+      const button = Array.from(card.querySelectorAll(".slopblock-badge button")).find((b) =>
+        /allow item/i.test(b.textContent ?? "")
+      );
+      if (button) {
+        button.click();
+        return true;
+      }
+    }
+    return false;
+  });
+  check("allow-item button exists on badge", allowClicked);
+  await page.waitForTimeout(700);
+  states = await cardStates(page);
+  check("allowed item becomes visible", states["9007"]?.action === "allow", JSON.stringify(states["9007"]));
+
+  console.log("\n== popup ==");
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${extension.id}/popup.html`);
+  await popup.waitForSelector("#enabled");
+  check("popup renders master toggle", await popup.isChecked("#enabled"));
+  const summaryText = await popup.textContent("#pageSummary");
+  check("popup summary handles non-marketplace tab", /marketplace tab/i.test(summaryText ?? ""), summaryText ?? "");
+
+  // With the marketplace tab active, the popup summary should populate.
+  await page.bringToFront();
+  await popup.click("#refreshSummary");
+  await popup.waitForTimeout(600);
+  const populated = await popup.evaluate(() => ({
+    stats: Array.from(document.querySelectorAll(".stat")).map((node) => node.textContent?.replace(/\s+/g, " ").trim()),
+    topRules: document.querySelectorAll(".summary-list li").length,
+    hasAllowButton: document.querySelector("[data-allow-item-id]") !== null
+  }));
+  check("popup summary populates from marketplace tab", populated.stats.some((s) => /hidden/i.test(s ?? "")), JSON.stringify(populated.stats));
+  check("popup summary lists top triggers and hidden examples", populated.topRules >= 2, String(populated.topRules));
+  check("popup summary offers allow-item actions", populated.hasAllowButton);
+
+  await popup.uncheck("#enabled");
+  await page.bringToFront();
+  await page.waitForTimeout(800);
+  states = await cardStates(page);
+  check("disabling via popup restores all cards", Object.values(states).every((state) => state.action === "allow"));
+  await popup.bringToFront();
+  await popup.check("#enabled");
+  await page.waitForTimeout(800);
+  states = await cardStates(page);
+  check("re-enabling via popup hides spam again", states["9008"]?.action === "hide", JSON.stringify(states["9008"]));
+  await popup.close();
+
+  console.log("\n== options ==");
+  const options = await context.newPage();
+  await options.goto(`chrome-extension://${extension.id}/options.html`);
+  await options.waitForSelector("#customAllowItemIds");
+  const allowIds = await options.inputValue("#customAllowItemIds");
+  check("allowed item id from badge shows in options", allowIds.includes("9007"), allowIds);
+
+  await options.fill("#testTitle", "Brand new sectional");
+  await options.fill("#testPrice", "$1");
+  await options.fill(
+    "#testText",
+    "Brand new sectional, multiple colors available. Order now, ships from warehouse. Real price $899."
+  );
+  await options.click("#runRuleTest");
+  const testResult = await options.textContent("#testResult");
+  check("rule tester reports HIDE with matched rules", /HIDE/i.test(testResult ?? "") && /dropship/i.test(testResult ?? ""), (testResult ?? "").slice(0, 120));
+
+  await options.close();
+} finally {
+  await context.close();
+  rmSync(WORK, { recursive: true, force: true });
+}
+
+console.log(`\n${passed} passed, ${failed} failed${failures.length ? `: ${failures.join(" | ")}` : ""}`);
+process.exit(failed > 0 ? 1 : 0);

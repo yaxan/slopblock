@@ -1,0 +1,64 @@
+{
+  "ok": true,
+  "stats": {
+    "scanned": 3,
+    "hidden": 2,
+    "dimmed": 0,
+    "labeled": 1
+  },
+  "showHidden": false,
+  "decisions": [
+    {
+      "title": "Temu accent chair",
+      "priceText": "$40",
+      "idHint": "111",
+      "action": "hide",
+      "score": 88,
+      "visibleTextExcerpt": "Temu accent chair brand new order now warehouse stock",
+      "matches": [
+        {
+          "ruleId": "vendor-temu",
+          "category": "known-vendor",
+          "weight": 42,
+          "reason": "Temu/source mention",
+          "confidence": "high",
+          "sample": "Temu"
+        },
+        {
+          "ruleId": "dropship-order-language",
+          "category": "dropship-phrasing",
+          "weight": 32,
+          "reason": "order fulfillment language",
+          "confidence": "high",
+          "sample": "order now"
+        }
+      ]
+    },
+    {
+      "title": "Used IKEA chair",
+      "priceText": "$20",
+      "idHint": "222",
+      "action": "hide",
+      "score": 36,
+      "visibleTextExcerpt": "Used IKEA chair, scratches, pickup only",
+      "matches": [
+        {
+          "ruleId": "vendor-ikea",
+          "category": "known-vendor",
+          "weight": 36,
+          "reason": "IKEA/source mention",
+          "confidence": "high",
+          "sample": "IKEA"
+        }
+      ]
+    },
+    {
+      "title": "Lamp",
+      "priceText": "$10",
+      "action": "allow",
+      "score": 0,
+      "visibleTextExcerpt": "Lamp pickup only",
+      "matches": []
+    }
+  ]
+}

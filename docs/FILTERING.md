@@ -1,0 +1,81 @@
+# SlopBlock Filtering Model
+
+SlopBlock uses explainable weighted rules. Every decision is a sum of visible rule matches — no opaque ML, no remote calls — so every hidden card can show exactly why it was hidden.
+
+## The action ladder
+
+Scores map to actions through three thresholds per aggressiveness level:
+
+| | label ≥ | dim ≥ | hide ≥ |
+|---|---|---|---|
+| Relaxed | 28 | 48 | 86 |
+| Balanced (default) | 20 | 34 | 72 |
+| Strict | 18 | 26 | 58 |
+
+- **Label**: card stays fully visible with a small reason badge.
+- **Dim**: card stays visible but fogged — medium evidence never removes anything.
+- **Hide**: card is removed. Only near-certain signals reach this band.
+- "Dim only" mode caps the strongest action at dim; "Label only" never alters visibility.
+
+Weights are banded to match: 12–19 context-only (never visible alone), 20–33 label-alone, 34–54 dim-alone, 55+ reserved for signals that are nearly always right (sold/wanted posts, scam scripts, sponsored ads, confirmed bait pricing, flood repeats).
+
+## Design principles (learned from real-listing testing)
+
+The rule weights were tuned against a corpus of real listings fetched from public marketplace pages plus real spam/scam text collected from consumer-protection reports (see `eval/`). The eval gate (`npm run eval:gate`) fails the build if any legit corpus listing gets dimmed or hidden at balanced strength.
+
+1. **Vendor mentions are context, not crimes.** "IKEA Kallax shelf", "Amazon Echo", "bought from Wayfair originally" are everyday legit resales. Vendor rules sit in the low bands, and the `vendor-retail-combo` rule escalates only when a vendor mention appears alongside retail-style wording with no human condition details. Amazon product names (Echo, Kindle, Fire, Basics…) are excluded from the Amazon source rule entirely.
+2. **Everyday phrasing is not evidence.** "$15 each", "cash or venmo", "delivery available", "text me at 416-…", "brand new in box — unwanted gift", "no dealer fees here" (negation-aware), and price-drop strikethroughs are all normal human listing language and are specifically kept out of the strong rules.
+3. **Definitive signals are not rescued by condition words.** "Good condition" doesn't make a SOLD post buyable, so gem-positive offsets are ignored once a 70+ signal fires. User allowlists still always win.
+4. **Hide requires certainty.** Single medium-confidence rules can at most dim. Hiding requires either one near-certain signal or several independent ones.
+
+## Duplicate floods: collapse, don't punish
+
+The old model penalized every card sharing a repeated title — which mass-flagged legitimate search results ("iPhone 12 128GB" from ten different sellers). The new model **collapses repeats instead**:
+
+- The **first occurrence always stays visible**. Only repeats beyond it hide, with a badge like "repeat of a visible listing (3 of 9 identical)".
+- Same title alone is never a flood. Collapse requires distinct Marketplace item IDs **and** matching price:
+  - **exact**: same title + price + location, 4+ distinct listings;
+  - **bait**: same title + location with every copy at ≤$5/Free, 4+ listings (price-rotating bait floods);
+  - **mass**: same title + price across any locations, 6+ listings (location-rotating repost floods).
+- Generic short titles ("Free couch") never build flood fingerprints; cloned DOM nodes of one listing count once; seller profile pages never collapse (a seller's own catalog legitimately repeats).
+
+## Rule groups
+
+- `Known vendors`: dropship sources (Temu, AliExpress, DHgate…) at label-level weights; brand/provenance mentions (IKEA, Costco, Walmart…) at context-level weights; `vendor-retail-combo` escalation.
+- `Dropship phrasing`: variant/catalog availability, order-fulfillment language, wholesale/supplier language, quantity-on-hand.
+- `Stores and dealers`: showrooms, liquidation/outlets, commercial sales language, business CTAs, subprime auto-dealer financing ("$500 down", "everyone approved", "buy here pay here") and dealer-fee language ("+ HST & Licensing", "plus TTL") — negation-aware so "no dealer fees" from private sellers stays safe.
+- `Bait pricing`: placeholder prices ($1/$123/$1234/$9999/Free) combined with a revealed real price or price-disclosure phrasing ("prices in description"). A revealed higher price is hide-level. Garage/estate/moving multi-item posts with "message me for prices" are exempt.
+- `External redirects`: order links/shorteners/"link in bio" (strong), bare domain mentions (weak), WhatsApp/Telegram (label-level; acceptance of Venmo/Zelle/cash is *not* a signal — only "X only" pressure is), promo codes, phone numbers (context-level only — real people post phone numbers).
+- `Not for sale`: ISO/WTB/wanted posts, trade-only, sold/pending/reserved — hide-level; these are unambiguous non-listings. "Wanted" movie/poster titles and the "looking for a new home" giveaway idiom are excluded.
+- `Service spam`: moving/hauling, contractor services (requires service context — "flooring" as leftover material is safe), rentals/real estate, job/opportunity posts (hide-level core phrases; "side hustle"-style hype words only stack because real equipment listings use them), task/MLM pitches.
+- `Scams and payment pressure`: deposit-to-hold, payment-app-only pressure, shipping-only pushes, fake payment/business-account-upgrade scripts, verification-code requests, gift-card/crypto pressure, loan/investment schemes, overpayment/refund scripts, absent-seller arrangements ("out of town, my assistant will coordinate"). Tuned against real scam scripts from consumer-protection reports.
+- `Counterfeits`: replica/superclone/1:1/UA language (hide-level), designer-dupe phrasing, authenticity dodges on branded goods ("looks real", "can't verify"), suspiciously cheap luxury-house goods, and brand-new cheap hype gear. Used hype gear with wear details ("Jordan 1, worn, $90") stays visible; receipts/box-and-papers suppress the price heuristic. Honest design-reproduction furniture ("Eames style replica") dims rather than hides.
+- `Duplicate floods`: the collapse model above.
+- `Catalog copy`: reference/stock-photo disclaimers ("photos for reference only", "not actual item"), generic product copy, SKU/spec boilerplate.
+- `Keyword stuffing`: brand piles, separator stuffing (moving-sale bundle titles exempt), category-noun pileups ("sofa couch sectional loveseat recliner…"), repeated-word titles.
+- `Missing human context`: retail-style wording with zero condition/pickup/ownership detail. Context-only weight; never acts alone.
+- `Gem-positive signals`: estate/moving/garage sale, condition details, materials/vintage markers — negative weights that rescue borderline listings.
+- `Your custom rules`: local block/vendor/allow terms and allowed item IDs.
+
+## False-positive recovery
+
+Every layer of the tuning story, from fastest to deepest:
+
+1. **On-card badge** (dimmed/labeled/previewed cards): "Allow item" and "Disable top rule" buttons.
+2. **Popup → This page**: live stats, top triggers with one-click Disable, hidden examples with one-click Allow.
+3. **Popup → Quick filters**: one-switch control of the opinionated areas (Amazon/Temu sources, IKEA, liquidation/outlets, sponsored cards, catalog copy, floods, not-for-sale posts, job/loan scams, weak commercial text).
+4. **Popup → Filtering**: strength (relaxed/balanced/strict) and action (hide/dim/label).
+5. **Options → Rule groups**: whole categories on/off.
+6. **Options → All built-in rules**: every rule with its exact regex, weight, and confidence — individually toggleable, searchable.
+7. **Options → Rule tester**: paste any listing text, see the exact action, score, and matched samples under current settings.
+8. **Options → My terms**: custom block/vendor/allow terms (whole-word/phrase matching) and allowed item IDs.
+9. **Popup → Copy diagnostics**: local JSON of current-page decisions (URLs stripped of tracking params; phones/emails redacted) for `npm run diagnostics`.
+
+## Verification
+
+- `npm test` — 79 unit tests (scoring, flood analysis, DOM extraction, UI plumbing).
+- `npm run eval` — scores the real-listing corpus (`eval/corpus/`) at every strength in both card view (what feed cards show) and detail view; reports FP/miss rates and per-rule noise. `--gate` fails on any legit dim/hide at balanced; wired into `npm run verify`.
+- `npm run e2e` — loads the built extension into real Chromium against a high-fidelity Marketplace DOM fixture (reconstructed from public scraper sources, `eval/raw/fb-dom-notes.md`) and verifies hiding, flood collapse, sponsored-cell removal, infinite scroll, badges, allow-item persistence, popup summary/settings sync, and the options tester — 31 checks.
+- `npm run verify` — typecheck + tests + eval gate + build + audit + packaging checks.
+
+Current eval results (193-entry corpus: 123 real+curated legit, 52 real slop, 18 borderline): **0 legit listings labeled, dimmed, or hidden at any strength**; 98.1% of slop actioned in detail view at balanced (1 exotic miss), 59.6% actioned from card text alone.
