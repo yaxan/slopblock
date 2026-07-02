@@ -4,6 +4,7 @@ import "./decisionExport.test";
 import "./decisionSummary.test";
 import "./ruleToggles.test";
 import "./contentDom.test";
+import "./detail.test";
 import "./duplicateFlood.test";
 import "./optionsUi.test";
 import "./contentDiagnostics.test";

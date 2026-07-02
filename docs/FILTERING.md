@@ -28,6 +28,18 @@ The rule weights were tuned against a corpus of real listings fetched from publi
 3. **Definitive signals are not rescued by condition words.** "Good condition" doesn't make a SOLD post buyable, so gem-positive offsets are ignored once a 70+ signal fires. User allowlists still always win.
 4. **Hide requires certainty.** Single medium-confidence rules can at most dim. Hiding requires either one near-certain signal or several independent ones.
 
+## Item detail pages: where descriptions get scanned
+
+Feed cards only expose price/title/location, so description-only slop (a card that says nothing but a description full of Wayfair catalog links) is invisible at browse time — that is a property of what Facebook renders, not a rule gap. SlopBlock therefore scans the **item detail page** (`/marketplace/item/<id>`, including the dialog variant) separately:
+
+- The primary listing is located from the page's title heading and scoped so related-items grids and the right-rail Sponsored box never bleed into its score.
+- Outbound links are read from **hrefs, not display text**: Facebook wraps external links in `l.facebook.com/l.php?u=…` redirects and truncates the visible text, so the real destination is decoded from the wrapper.
+- Truncated descriptions are expanded (the "See more" toggle is activated once) so published text can't hide from scanning — this is a local UI action; nothing is fetched.
+- The verdict is shown as an **inline banner** with score, reasons, and Allow/Disable buttons. A page the user deliberately opened is annotated, never removed.
+- The structured `Condition` metadata row is treated correctly: bare "condition" is not human context (it appears on every listing), `Condition New` counts as retail context, and `Condition Used - Good` counts as human context.
+- Retailer **product-page links** (wayfair/amazon/walmart/… URLs with `/pdp/`, `/dp/`, `/ip/`-style product paths) are a high-confidence rule of their own: a listing that links a retailer catalog page while claiming Condition New is dropshipping. A used listing pasting a retail link for price comparison keeps its gem offsets and at most dims.
+- Card containers are required to contain **exactly one distinct listing**, and no finder may hide an element that spans page chrome (`role=main`/`role=dialog`/a page heading) — hiding one bad related card can never blank the page.
+
 ## Duplicate floods: collapse, don't punish
 
 The old model penalized every card sharing a repeated title — which mass-flagged legitimate search results ("iPhone 12 128GB" from ten different sellers). The new model **collapses repeats instead**:
@@ -73,9 +85,9 @@ Every layer of the tuning story, from fastest to deepest:
 
 ## Verification
 
-- `npm test` — 79 unit tests (scoring, flood analysis, DOM extraction, UI plumbing).
+- `npm test` — 86 unit tests (scoring, flood analysis, DOM and detail-page extraction, UI plumbing).
 - `npm run eval` — scores the real-listing corpus (`eval/corpus/`) at every strength in both card view (what feed cards show) and detail view; reports FP/miss rates and per-rule noise. `--gate` fails on any legit dim/hide at balanced; wired into `npm run verify`.
-- `npm run e2e` — loads the built extension into real Chromium against a high-fidelity Marketplace DOM fixture (reconstructed from public scraper sources, `eval/raw/fb-dom-notes.md`) and verifies hiding, flood collapse, sponsored-cell removal, infinite scroll, badges, allow-item persistence, popup summary/settings sync, and the options tester — 31 checks.
+- `npm run e2e` — loads the built extension into real Chromium against a high-fidelity Marketplace DOM fixture (reconstructed from public scraper sources, `eval/raw/fb-dom-notes.md`) and verifies hiding, flood collapse, sponsored-cell removal, infinite scroll, badges, allow-item persistence, popup summary/settings sync, item detail-page banners, and the options tester — 39 checks.
 - `npm run verify` — typecheck + tests + eval gate + build + audit + packaging checks.
 
-Current eval results (193-entry corpus: 123 real+curated legit, 52 real slop, 18 borderline): **0 legit listings labeled, dimmed, or hidden at any strength**; 98.1% of slop actioned in detail view at balanced (1 exotic miss), 59.6% actioned from card text alone.
+Current eval results (195-entry corpus: 123 real+curated legit, 53 real slop, 19 borderline): **0 legit listings labeled, dimmed, or hidden at any strength**; 98.1% of slop actioned in detail view at balanced (1 exotic miss), 58.5% actioned from card text alone.

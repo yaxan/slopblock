@@ -5,9 +5,11 @@ import { STORAGE_KEY, normalizeSettings } from "../common/settings";
 import { loadSettings, saveSettings } from "../common/storage";
 import { toContentDecision } from "./diagnostics";
 import { analyzeDuplicateFlood } from "./duplicateFlood";
+import { expandSeeMore, extractDetailSnapshot, findDetailContainer, isItemDetailUrl } from "./detail";
 import {
   SLOPBLOCK_SELECTOR,
   extractCleanText,
+  extractItemId,
   extractListingSnapshot,
   isMarketplaceSellerProfileContext
 } from "./dom";
@@ -123,7 +125,122 @@ function rescanMarketplace(): void {
     applyScore(card, result, snapshot);
   }
 
+  scanItemDetail();
   updateToolbar();
+}
+
+/**
+ * The main listing on /marketplace/item/<id> pages carries the description —
+ * where catalog links, order language, and scam scripts actually live — but
+ * contains no card anchors, so the card scan never sees it. Score it
+ * separately and show an inline verdict banner (a page the user deliberately
+ * opened is annotated, never removed).
+ */
+function scanItemDetail(): void {
+  if (!settings || !isItemDetailUrl(window.location.href)) {
+    return;
+  }
+
+  const container = findDetailContainer(document);
+  if (!container) {
+    return;
+  }
+
+  // Reveal "See more" description text first; the resulting DOM mutation
+  // re-triggers a scan that will read the full description.
+  if (expandSeeMore(container)) {
+    return;
+  }
+
+  const snapshot = extractDetailSnapshot(container, window.location.href);
+  if (!snapshot.title && !snapshot.visibleText) {
+    return;
+  }
+
+  const result = scoreListing(snapshot, settings, {});
+  lastDecisions.push(toContentDecision(snapshot, result));
+  stats.scanned += 1;
+  if (result.action !== "allow") {
+    // The banner annotates rather than hides, so it counts as labeled.
+    stats.labeled += 1;
+  }
+
+  applyDetailVerdict(container, result, snapshot);
+}
+
+function applyDetailVerdict(container: HTMLElement, result: ScoreResult, snapshot: ListingSnapshot): void {
+  const signature = scoreSignature(result, snapshot);
+  const existing = container.querySelector<HTMLElement>(":scope > .slopblock-detail-banner");
+
+  if (result.action === "allow") {
+    existing?.remove();
+    return;
+  }
+
+  if (existing?.dataset.slopblockSignature === signature) {
+    return;
+  }
+
+  existing?.remove();
+
+  const banner = document.createElement("div");
+  banner.className = "slopblock-detail-banner";
+  banner.dataset.slopblockSignature = signature;
+  banner.dataset.tone = result.action;
+
+  const positiveMatches = result.matches.filter((match) => match.weight > 0);
+  const reasons = positiveMatches
+    .slice(0, 3)
+    .map((match) => match.reason)
+    .join(" · ");
+  const verdictText =
+    result.action === "hide"
+      ? "This listing looks like marketplace slop"
+      : result.action === "dim"
+        ? "This listing looks commercial or suspicious"
+        : "This listing has mild slop signals";
+
+  const summary = document.createElement("div");
+  summary.className = "slopblock-detail-banner-summary";
+  const heading = document.createElement("strong");
+  heading.textContent = `SlopBlock ${result.score}: ${verdictText}`;
+  const detail = document.createElement("span");
+  detail.textContent = reasons || result.action;
+  summary.append(heading, detail);
+  banner.append(summary);
+
+  const actions = document.createElement("div");
+  actions.className = "slopblock-detail-banner-actions";
+
+  if (snapshot.idHint || allowTermFromTitle(snapshot.title)) {
+    const allowButton = document.createElement("button");
+    allowButton.type = "button";
+    allowButton.textContent = snapshot.idHint ? "Allow this item" : "Allow this title";
+    allowButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      void allowListing(snapshot);
+    });
+    actions.append(allowButton);
+  }
+
+  const topRuleId = controlRuleIdForMatch(positiveMatches[0]?.ruleId);
+  if (topRuleId) {
+    const disableRuleButton = document.createElement("button");
+    disableRuleButton.type = "button";
+    disableRuleButton.dataset.variant = "quiet";
+    disableRuleButton.textContent = "Disable top rule";
+    disableRuleButton.title = topRuleId;
+    disableRuleButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      void disableRule(topRuleId);
+    });
+    actions.append(disableRuleButton);
+  }
+
+  banner.append(actions);
+  container.prepend(banner);
 }
 
 const ITEM_ANCHOR_SELECTOR =
@@ -192,8 +309,15 @@ function findSponsoredCell(anchor: HTMLAnchorElement): HTMLElement | null {
 
   // Climb to the outermost element that still contains only this ad unit
   // (a standalone Sponsored line, no organic item links) so the whole grid
-  // cell hides instead of leaving an empty shell.
+  // cell hides instead of leaving an empty shell. Never climb across page
+  // chrome or a detail listing (which owns the page h1) — on item pages the
+  // right-rail ad box has no item-anchor neighbors to stop the walk, and an
+  // unbounded climb would swallow the entire page.
   for (let depth = 0; node && node !== document.body && depth < 9; depth += 1) {
+    if (node.matches('[role="main"], [role="dialog"], main') || node.querySelector("h1")) {
+      break;
+    }
+
     const { visibleText, lines } = extractCleanText(node);
     if (visibleText.length > 1400 || node.querySelector(ITEM_ANCHOR_SELECTOR) !== null) {
       break;
@@ -213,6 +337,20 @@ function findSponsoredCell(anchor: HTMLAnchorElement): HTMLElement | null {
   return candidate;
 }
 
+/**
+ * Backstop for finder bugs and future Facebook layout changes: never apply
+ * destructive visual state to page chrome. If a "card" turns out to span the
+ * main/dialog region or a page heading, fail open (leave it visible) rather
+ * than blank the page.
+ */
+function isSafeToAlter(card: HTMLElement): boolean {
+  return (
+    !card.matches('body, main, [role="main"], [role="dialog"], [role="navigation"], [role="banner"]') &&
+    card.querySelector("h1") === null &&
+    card.querySelector(".slopblock-toolbar") === null
+  );
+}
+
 function findCardContainer(anchor: HTMLAnchorElement): HTMLElement | null {
   const processedAncestor = anchor.closest<HTMLElement>(`[${PROCESSED_ATTR}]`);
   if (processedAncestor) {
@@ -223,12 +361,24 @@ function findCardContainer(anchor: HTMLAnchorElement): HTMLElement | null {
   let candidate: HTMLElement | null = anchor;
 
   for (let depth = 0; node && node !== document.body && depth < 9; depth += 1) {
+    // A card never spans page/dialog chrome or a detail listing (which owns
+    // the page h1). Without this stop, hiding one card in a sparse grid
+    // (e.g. two related items on a detail page) could hide the whole page.
+    if (node.matches('[role="main"], [role="dialog"], main') || node.querySelector("h1")) {
+      break;
+    }
+
     const text = extractCleanText(node).visibleText;
-    const marketplaceLinks = node.querySelectorAll(ITEM_ANCHOR_SELECTOR).length;
+    const anchors = Array.from(node.querySelectorAll<HTMLAnchorElement>(ITEM_ANCHOR_SELECTOR));
+    const distinctListings = new Set(
+      anchors.map((itemAnchor) => extractItemId(itemAnchor.getAttribute("href") ?? "") ?? itemAnchor.getAttribute("href"))
+    );
     const rect = node.getBoundingClientRect();
+    // Exactly ONE distinct listing inside: duplicate anchors to the same item
+    // (image + title) are fine, a sibling listing means we've climbed too far.
     const isPlausibleCard =
-      marketplaceLinks >= 1 &&
-      marketplaceLinks <= 3 &&
+      anchors.length >= 1 &&
+      distinctListings.size === 1 &&
       text.length >= 8 &&
       text.length <= 1200 &&
       rect.width >= 90 &&
@@ -238,7 +388,7 @@ function findCardContainer(anchor: HTMLAnchorElement): HTMLElement | null {
       candidate = node;
     }
 
-    if (marketplaceLinks > 3 || text.length > 1400) {
+    if (distinctListings.size > 1 || anchors.length > 3 || text.length > 1400) {
       break;
     }
 
@@ -306,6 +456,10 @@ function clearCardState(card: HTMLElement): void {
 function applyVisualState(card: HTMLElement, result: ScoreResult): void {
   restoreDisplay(card);
   card.classList.remove("slopblock-dim", "slopblock-label", "slopblock-hidden-preview");
+
+  if (result.action !== "allow" && !isSafeToAlter(card)) {
+    return;
+  }
 
   if (result.action === "hide") {
     if (showHidden) {

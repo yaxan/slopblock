@@ -1,7 +1,7 @@
 import { normalizeText } from "../common/scoring";
 import type { ListingSnapshot } from "../common/types";
 
-export const SLOPBLOCK_SELECTOR = ".slopblock-badge, .slopblock-toolbar";
+export const SLOPBLOCK_SELECTOR = ".slopblock-badge, .slopblock-toolbar, .slopblock-detail-banner";
 
 export function extractCleanText(root: HTMLElement): { visibleText: string; lines: string[] } {
   const lines: string[] = [];

@@ -108,5 +108,16 @@
     "location": "",
     "body": "My company just posted me to your neighborhood due to job promotion. I want my movers to pick up the item, I'll pay you now with Zelle including extra for the movers, kindly send the over-payment to them when it clears.",
     "note": "Overpayment + third-party pickup script"
+  },
+  {
+    "id": "web-s-011",
+    "label": "slop",
+    "kind": "dropship-catalog-link",
+    "source": "https://www.facebook.com/marketplace/item/2147792605766266 (user-reported false negative, 2026-07-02)",
+    "title": "Ayanna 6 Drawer Rattan Storage Dresser & Night Stands",
+    "price": "$125",
+    "location": "San Mateo, CA",
+    "body": "Details Condition New Stylish dresser has 6 drawers with rattan fronts. Light wood finish and gold handles. Nightstands with charging stations included! All in perfect condition! https://www.wayfair.com/furniture/pdp/bay-isle-home-ayanna-6-drawer-rattan-storage-dresser-byil6879.html?piid=89164407%2C113652794%2C119021716 https://www.wayfair.com/furniture/pdp/beachcrest-home-kunkle-manufactured-wood-rattan-nightstand-with-charging-station-w011178059.html?piid=1188330327",
+    "note": "Real dropship listing that slipped through: Condition New + Wayfair pdp catalog links, zero ownership context. Card view shows nothing; must be caught by detail scan."
   }
 ]

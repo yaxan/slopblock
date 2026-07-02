@@ -115,6 +115,79 @@ export function renderGridSection(cards, { heading, sponsoredHeading = false } =
 </div>`;
 }
 
+/**
+ * Item detail page (direct load): role=main with the listing info column
+ * (last h1 = title, price with aria-label, "Listed … in …", Condition rows,
+ * description with l.facebook.com-wrapped outbound links and an optional
+ * "See more" toggle that inserts the remaining text on click), a related
+ * items grid, and a right-rail Sponsored box.
+ */
+export function renderItemDetailPage(listing, { related = [], truncated = false } = {}) {
+  const linkHtml = (url, index) =>
+    `<a href="https://l.facebook.com/l.php?u=${encodeURIComponent(url)}&h=AT${index}abc" target="_blank" rel="nofollow">${escapeHtml(
+      url.replace(/^https:\/\//, "").slice(0, 34)
+    )}…</a>`;
+
+  const visibleParagraphs = (listing.description ?? [])
+    .map((line) => `<div><span dir="auto">${escapeHtml(line)}</span></div>`)
+    .join("\n");
+  const linkBlock = (listing.links ?? []).map(linkHtml).join("<br>");
+
+  const descriptionBody = truncated
+    ? `${visibleParagraphs}
+       <div role="button" tabindex="0" id="see-more-toggle">See more</div>
+       <script>
+         document.getElementById("see-more-toggle").addEventListener("click", function () {
+           const rest = document.createElement("div");
+           rest.innerHTML = ${JSON.stringify(linkBlock)};
+           this.parentNode.appendChild(rest);
+           this.remove();
+         });
+       </script>`
+    : `${visibleParagraphs}<div>${linkBlock}</div>`;
+
+  return `<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>${escapeHtml(listing.title)} - Marketplace</title>
+<style>
+  body { margin: 0; font-family: Helvetica, Arial, sans-serif; background: #f0f2f5; }
+  [role="main"] { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; padding: 16px; }
+  .hero { background: #ddd; height: 420px; border-radius: 8px; }
+  .info { background: #fff; border-radius: 8px; padding: 16px; }
+  a { color: #216fdb; text-decoration: none; }
+</style></head>
+<body>
+<div role="banner"><h1 style="position:absolute;left:-9999px">Facebook</h1></div>
+<div role="navigation" aria-label="Marketplace sidebar"><input aria-label="Search Marketplace"></div>
+<div role="main">
+  <div>
+    <div class="hero"><img alt="Product photo of ${escapeHtml(listing.title)}" src="/img/detail.png" style="width:100%;height:100%;object-fit:cover;"></div>
+    <div class="related">
+      <h2>More like this</h2>
+      ${renderGridSection(related)}
+    </div>
+  </div>
+  <div class="right-col">
+    <div class="info">
+      <h1>${escapeHtml(listing.title)}</h1>
+      <div><span aria-label="${escapeHtml(listing.price)}" dir="auto">${escapeHtml(listing.price)}</span></div>
+      <div><span dir="auto">Listed a day ago in ${escapeHtml(listing.location)}</span></div>
+      <div><span dir="auto">Details</span></div>
+      <div><span dir="auto">Condition</span> <span dir="auto">${escapeHtml(listing.condition ?? "New")}</span></div>
+      <div class="description">${descriptionBody}</div>
+      <div><span dir="auto">Seller information</span></div>
+      <div><a href="/marketplace/profile/99887766/">Casey Seller</a> <span dir="auto">Joined Facebook in 2019</span></div>
+    </div>
+    <div class="rail-ad">
+      <span><h2><a href="/ads/about/?entry_product=ad_preferences">Sponsored</a></h2></span>
+      <a href="https://l.facebook.com/l.php?u=${encodeURIComponent("https://ads.example.com/promo")}">Shop deals</a>
+    </div>
+  </div>
+</div>
+</body>
+</html>`;
+}
+
 export function renderMarketplacePage(sections, { title = "Facebook Marketplace" } = {}) {
   return `<!doctype html>
 <html lang="en">

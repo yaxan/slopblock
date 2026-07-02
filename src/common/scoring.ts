@@ -16,11 +16,17 @@ const THRESHOLDS = {
   strict: { label: 18, dim: 26, hide: 58 }
 } as const;
 
+// Human condition context. Deliberately does NOT include the bare word
+// "condition": Marketplace detail pages render a structured "Condition"
+// metadata row on every listing, so the bare word would suppress the
+// commercial heuristics site-wide. Only qualified forms count as human.
 const CONDITION_WORDS =
-  /\b(?:used|owned|condition|gently\s+used|pre[-\s]?owned|like\s+new|no\s+stains?|as[-\s]?is|needs\s+tlc|scratch|scratches|dent|dents|wear|worn|scuffs?|works|broken|repair|pickup|pick\s+up|smoke[-\s]?free|pet[-\s]?free|measurements?|dimensions?|moving|estate|garage\s+sale|private\s+sale|one\s+owner|clean\s+(?:title|carfax)|no\s+accidents?|well[-\s]maintained|selling\s+because)\b/i;
+  /\b(?:used|owned|gently\s+used|pre[-\s]?owned|like\s+new|(?:good|great|excellent|fair|poor|mint|decent|rough|working)\s+condition|condition\s*:?\s*(?:is\s+)?(?:good|great|excellent|fair|poor|decent|used|like\s+new)|no\s+stains?|as[-\s]?is|needs\s+tlc|scratch|scratches|dent|dents|wear|worn|scuffs?|works|broken|repair|pickup|pick\s+up|smoke[-\s]?free|pet[-\s]?free|measurements?|dimensions?|moving|estate|garage\s+sale|private\s+sale|one\s+owner|clean\s+(?:title|carfax)|no\s+accidents?|well[-\s]maintained|selling\s+because)\b/i;
 
+// "Condition New" is the structured-metadata form of "brand new" and is
+// retail context, not human context ("Condition Like New" is excluded).
 const RETAIL_STYLE_WORDS =
-  /\b(?:brand\s+new|new\s+in\s+box|sealed|inventory|stock|order|wholesale|warehouse|showroom|tax|financing)\b/i;
+  /\b(?:brand\s+new|new\s+in\s+box|sealed|inventory|stock|order|wholesale|warehouse|showroom|tax|financing|condition\s*:?\s*(?:brand\s+)?new\b)/i;
 
 const VENDOR_BRANDS =
   /\b(?:amazon|temu|aliexpress|alibaba|wish|shein|wayfair|walmart|target|ikea|costco|home\s*depot|lowe'?s|overstock|dhgate|ashley|west\s+elm|pottery\s+barn|crate\s*&?\s*barrel|cb2|restoration\s+hardware|rh)\b/gi;

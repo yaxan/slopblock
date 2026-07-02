@@ -10,7 +10,7 @@ import { createHash, generateKeyPairSync } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { renderCell, renderGridSection, renderMarketplacePage } from "./fixture.mjs";
+import { renderCell, renderGridSection, renderItemDetailPage, renderMarketplacePage } from "./fixture.mjs";
 
 const HEADED = process.argv.includes("--headed");
 const ROOT = new URL("..", import.meta.url).pathname;
@@ -76,11 +76,67 @@ const PNG_1PX = Buffer.from(
   "base64"
 );
 
+const WAYFAIR_LINKS = [
+  "https://www.wayfair.com/furniture/pdp/bay-isle-home-ayanna-6-drawer-rattan-storage-dresser-byil6879.html?piid=89164407%2C113652794%2C119021716",
+  "https://www.wayfair.com/furniture/pdp/beachcrest-home-kunkle-manufactured-wood-rattan-nightstand-with-charging-station-w011178059.html?piid=1188330327"
+];
+
+const RELATED_CARDS = [
+  { id: "5001", title: "Rattan tallboy dresser solid wood", price: "$140", location: "San Jose, CA" },
+  { id: "5002", title: "ISO rattan nightstand pair", price: "$1", location: "San Mateo, CA" }
+];
+
+function detailHtml(pathname) {
+  if (pathname.includes("/item/2147792605766266")) {
+    // The user-reported Wayfair dropship listing, links behind "See more".
+    return renderItemDetailPage(
+      {
+        title: "Ayanna 6 Drawer Rattan Storage Dresser & Night Stands",
+        price: "$125",
+        location: "San Mateo, CA",
+        condition: "New",
+        description: [
+          "Stylish dresser has 6 drawers with rattan fronts. Light wood finish and gold handles.",
+          "Nightstands with charging stations included!",
+          "All in perfect condition!"
+        ],
+        links: WAYFAIR_LINKS
+      },
+      { related: RELATED_CARDS, truncated: true }
+    );
+  }
+
+  if (pathname.includes("/item/6001")) {
+    return renderItemDetailPage(
+      {
+        title: "Solid oak dresser - moving sale",
+        price: "$180",
+        location: "San Mateo, CA",
+        condition: "Used - Good",
+        description: [
+          "Owned for 6 years, gently used. Some scratches on the top, drawers slide fine.",
+          "Pickup only, we are moving at the end of the month."
+        ],
+        links: []
+      },
+      { related: RELATED_CARDS }
+    );
+  }
+
+  return null;
+}
+
 async function installRoutes(context) {
   await context.route("https://www.facebook.com/**", async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.startsWith("/img/")) {
       await route.fulfill({ status: 200, contentType: "image/png", body: PNG_1PX });
+      return;
+    }
+
+    const detail = /\/marketplace\/(?:np\/)?item\//.test(url.pathname) ? detailHtml(url.pathname) : null;
+    if (detail) {
+      await route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: detail });
       return;
     }
 
@@ -283,6 +339,50 @@ try {
   await page.waitForTimeout(700);
   states = await cardStates(page);
   check("allowed item becomes visible", states["9007"]?.action === "allow", JSON.stringify(states["9007"]));
+
+  console.log("\n== item detail pages ==");
+  const detailPage = await context.newPage();
+  await detailPage.goto("https://www.facebook.com/marketplace/item/2147792605766266/?ref=search", {
+    waitUntil: "domcontentloaded"
+  });
+  await detailPage.waitForSelector(".slopblock-detail-banner", { timeout: 20000 });
+  await detailPage.waitForTimeout(500);
+  const banner = await detailPage.evaluate(() => {
+    const node = document.querySelector(".slopblock-detail-banner");
+    return {
+      tone: node?.getAttribute("data-tone"),
+      text: node?.textContent ?? "",
+      seeMoreGone: document.getElementById("see-more-toggle") === null,
+      insideInfo: node?.closest(".info") !== null
+    };
+  });
+  check("dropship detail page shows a strong banner", banner.tone === "hide", JSON.stringify(banner));
+  check("banner cites the retailer catalog link", /retailer catalog\/product link/i.test(banner.text), banner.text.slice(0, 140));
+  check("see-more description was expanded for scanning", banner.seeMoreGone);
+  check("banner does not blame the ad rail", !/sponsored marketplace ad/i.test(banner.text), banner.text.slice(0, 140));
+
+  const relatedStates = await cardStates(detailPage);
+  check("related-items grid still filters on detail pages", relatedStates["5002"]?.action === "hide", JSON.stringify(relatedStates["5002"]));
+  check("legit related card stays visible", relatedStates["5001"]?.action === "allow");
+
+  await detailPage.evaluate(() => {
+    const button = Array.from(document.querySelectorAll(".slopblock-detail-banner button")).find((b) =>
+      /allow this item/i.test(b.textContent ?? "")
+    );
+    button?.click();
+  });
+  await detailPage.waitForTimeout(700);
+  const bannerAfterAllow = await detailPage.evaluate(() => document.querySelector(".slopblock-detail-banner") !== null);
+  check("allowing from the banner clears it", bannerAfterAllow === false);
+
+  const legitDetail = await context.newPage();
+  await legitDetail.goto("https://www.facebook.com/marketplace/item/6001/", { waitUntil: "domcontentloaded" });
+  await legitDetail.waitForSelector(".slopblock-toolbar", { timeout: 20000 });
+  await legitDetail.waitForTimeout(800);
+  const legitBanner = await legitDetail.evaluate(() => document.querySelector(".slopblock-detail-banner") !== null);
+  check("legit detail page shows no banner", legitBanner === false);
+  await legitDetail.close();
+  await detailPage.close();
 
   console.log("\n== popup ==");
   const popup = await context.newPage();

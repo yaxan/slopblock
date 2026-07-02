@@ -1,6 +1,6 @@
 # SlopBlock eval
 
-Real-world evaluation corpus and harness. This is what keeps the filter honest: rules only ship if they produce **zero false positives** on real listings.
+Real-world evaluation corpus and harness (195 entries). This is what keeps the filter honest: rules only ship if they produce **zero false positives** on real listings.
 
 ## Layout
 

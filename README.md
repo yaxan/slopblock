@@ -14,14 +14,16 @@ Explainable weighted rules with a three-band action ladder — see [docs/FILTERI
 
 Repeated-listing floods are **collapsed, not punished**: the first copy always stays visible and only repeats beyond it hide ("repeat of a visible listing, 3 of 9 identical"). Same title alone never counts — search results full of "iPhone 12 128GB" from different sellers at different prices are untouched.
 
+**Item detail pages get their own scan.** Feed cards only show price/title/location, so listings whose evidence lives in the description (retailer catalog links, order language, scam scripts) are scored when you open them: outbound links are decoded from Facebook's l.facebook.com wrappers, truncated "See more" descriptions are expanded, and a verdict banner with reasons and one-click Allow/Disable appears at the top of the listing — the page itself is never hidden.
+
 ## Tested against real listings
 
 The rules are tuned and gated against real-world text, not intuition:
 
-- `eval/corpus/` holds 190+ labeled entries: real listings fetched from public marketplace pages (furniture, electronics, cars, free stuff, tools…), real dealer/scam/dropship/counterfeit text collected from consumer-protection reports and community documentation, plus curated edge cases (IKEA resales, "cash or venmo", "$15 each", phone numbers, "no dealer fees here"…).
+- `eval/corpus/` holds 195 labeled entries: real listings fetched from public marketplace pages (furniture, electronics, cars, free stuff, tools…), real dealer/scam/dropship/counterfeit text collected from consumer-protection reports and community documentation, plus curated edge cases (IKEA resales, "cash or venmo", "$15 each", phone numbers, "no dealer fees here"…).
 - `npm run eval` scores the whole corpus at every strength in both **card view** (price/title/location — what feed cards actually show) and **detail view**; it reports false positives, misses, and per-rule noise.
 - `npm run eval:gate` (part of `npm run verify`) **fails the build if any legit listing gets dimmed or hidden** at balanced strength. Current state: 0 false positives at any strength, 98% of slop actioned in detail view.
-- `npm run e2e` loads the built extension into real Chromium against a high-fidelity Marketplace DOM fixture (structure reconstructed from public scraper sources) and runs 31 end-to-end checks: hiding, flood collapse, sponsored-cell removal, infinite scroll, on-card badges, allow-item persistence, popup summary and settings sync, options rule tester.
+- `npm run e2e` loads the built extension into real Chromium against a high-fidelity Marketplace DOM fixture (structure reconstructed from public scraper sources) and runs 39 end-to-end checks: hiding, flood collapse, sponsored-cell removal, item detail-page banners (including the See-more/link-wrapper handling), infinite scroll, on-card badges, allow-item persistence, popup summary and settings sync, options rule tester.
 
 ## Using it
 
@@ -33,7 +35,7 @@ The rules are tuned and gated against real-world text, not intuition:
 
 ```sh
 npm install
-npm test          # typecheck + 79 unit tests
+npm test          # typecheck + 86 unit tests
 npm run eval      # score the real-listing corpus (add -- --verbose for details)
 npm run e2e       # build + end-to-end tests in real Chromium (needs npx playwright install chromium once)
 npm run build     # production build into dist/

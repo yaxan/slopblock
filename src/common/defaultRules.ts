@@ -220,6 +220,16 @@ export const DEFAULT_RULES: RuleDefinition[] = [
     pattern: /\b[a-z0-9-]{3,}\.(?:com|net)\b/i
   },
   {
+    id: "external-retailer-product-link",
+    category: "external-redirect",
+    reason: "retailer catalog/product link",
+    weight: 40,
+    confidence: "high",
+    fields: ["allText"],
+    pattern:
+      /\b(?:wayfair|amazon|walmart|target|ikea|overstock|temu|aliexpress|dhgate|shein|homedepot|lowe'?s|costco|bestbuy|samsclub|alibaba|banggood|wish)\.(?:com|ca|co\.uk|net)\S*(?:\/pdp\/|\/dp\/|\/ip\/|\/itm\/|\/gp\/product|\/p\/[a-z0-9-]|\/product[s/-]|[?&](?:piid|skuid|pid|asin|item)=)/i
+  },
+  {
     id: "external-messaging",
     category: "external-redirect",
     reason: "off-platform messaging app",

@@ -86,5 +86,16 @@
     "location": "Toronto, ON",
     "body": "Moving sale. I can also deliver same day for $40 within the city, I have a van. Cash on delivery.",
     "note": "'same day delivery' from an individual with a van - dropship rule should not hide this"
+  },
+  {
+    "id": "hw-b-009",
+    "label": "borderline",
+    "kind": "retail-link-comparison",
+    "source": "handwritten",
+    "title": "West Elm Andes sofa - great shape",
+    "price": "$650",
+    "location": "Toronto, ON",
+    "body": "Owned for 3 years, gently used, no stains, from a smoke free home. Retails for $1,899, here is the exact one: https://www.westelm.com/products/andes-sofa-h1936/ selling because we are moving. Pickup only.",
+    "note": "Legit seller pasting the retail product link for price comparison. Dim acceptable, hide is not."
   }
 ]
