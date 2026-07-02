@@ -4,6 +4,7 @@ import { controlRuleIdForMatch } from "../common/ruleToggles";
 import { STORAGE_KEY, normalizeSettings } from "../common/settings";
 import { loadSettings, saveSettings } from "../common/storage";
 import { toContentDecision } from "./diagnostics";
+import { createDeepScanner } from "./deepScan";
 import { analyzeDuplicateFlood } from "./duplicateFlood";
 import { expandSeeMore, extractDetailSnapshot, findDetailContainer, isItemDetailUrl } from "./detail";
 import {
@@ -31,6 +32,7 @@ let showHidden = false;
 let scanTimer: number | undefined;
 let stats: ContentStats = { scanned: 0, hidden: 0, dimmed: 0, labeled: 0 };
 let lastDecisions: ReturnType<typeof toContentDecision>[] = [];
+const deepScanner = createDeepScanner(() => scheduleScan(0));
 
 void init();
 
@@ -40,6 +42,55 @@ async function init(): Promise<void> {
   scheduleScan();
   observeMarketplace();
   installRuntimeListeners();
+  installDeepScanTriggers();
+}
+
+function installDeepScanTriggers(): void {
+  let scrollTimer: number | undefined;
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (scrollTimer !== undefined) {
+        return;
+      }
+
+      scrollTimer = window.setTimeout(() => {
+        scrollTimer = undefined;
+        queueDeepScans();
+      }, 800);
+    },
+    { passive: true }
+  );
+}
+
+/**
+ * Queue background description scans for cards near the viewport that the
+ * card text alone could not condemn. Viewport-first keeps request volume
+ * proportional to what the user actually looks at.
+ */
+function queueDeepScans(): void {
+  if (!settings?.enabled || !settings.deepScan) {
+    return;
+  }
+
+  const lookahead = window.innerHeight * 2;
+  for (const card of Array.from(document.querySelectorAll<HTMLElement>(`[${PROCESSED_ATTR}]`))) {
+    const itemId = card.dataset.slopblockItemId;
+    if (!itemId || deepScanner.has(itemId)) {
+      continue;
+    }
+
+    if (card.getAttribute(PROCESSED_ATTR) === "hide") {
+      continue;
+    }
+
+    const rect = card.getBoundingClientRect();
+    if (rect.bottom < -lookahead || rect.top > window.innerHeight + lookahead) {
+      continue;
+    }
+
+    deepScanner.request(itemId);
+  }
 }
 
 function observeMarketplace(): void {
@@ -120,13 +171,36 @@ function rescanMarketplace(): void {
       context.duplicate = duplicate;
     }
 
-    const result = scoreListing(snapshot, settings, context);
-    lastDecisions.push(toContentDecision(snapshot, result));
+    if (snapshot.idHint) {
+      card.dataset.slopblockItemId = snapshot.idHint;
+    }
+
+    let result = scoreListing(snapshot, settings, context);
+    let decisionSnapshot = snapshot;
+
+    // Merge in the background description scan: the deep snapshot is the
+    // same listing with its full seller-written text, so the stronger
+    // verdict wins. Cheap card evidence (flood context) still applies.
+    const deepSnapshot = settings.deepScan && snapshot.idHint ? deepScanner.getSnapshot(snapshot.idHint) : undefined;
+    if (deepSnapshot) {
+      const deepResult = scoreListing(deepSnapshot, settings, context);
+      if (deepResult.score > result.score) {
+        result = deepResult;
+        decisionSnapshot = { ...deepSnapshot };
+        const bestUrl = snapshot.url ?? deepSnapshot.url;
+        if (bestUrl !== undefined) {
+          decisionSnapshot.url = bestUrl;
+        }
+      }
+    }
+
+    lastDecisions.push(toContentDecision(decisionSnapshot, result));
     applyScore(card, result, snapshot);
   }
 
   scanItemDetail();
   updateToolbar();
+  queueDeepScans();
 }
 
 /**
@@ -155,6 +229,12 @@ function scanItemDetail(): void {
   const snapshot = extractDetailSnapshot(container, window.location.href);
   if (!snapshot.title && !snapshot.visibleText) {
     return;
+  }
+
+  // Remember what we saw: if this listing shows up again in a feed, its
+  // card can be judged on the full text without another fetch.
+  if (snapshot.idHint) {
+    deepScanner.setSnapshot(snapshot.idHint, snapshot);
   }
 
   const result = scoreListing(snapshot, settings, {});
@@ -189,6 +269,7 @@ function applyDetailVerdict(container: HTMLElement, result: ScoreResult, snapsho
   banner.dataset.tone = result.action;
 
   const positiveMatches = result.matches.filter((match) => match.weight > 0);
+  const topMatch = positiveMatches[0];
   const reasons = positiveMatches
     .slice(0, 3)
     .map((match) => match.reason)
@@ -203,9 +284,10 @@ function applyDetailVerdict(container: HTMLElement, result: ScoreResult, snapsho
   const summary = document.createElement("div");
   summary.className = "slopblock-detail-banner-summary";
   const heading = document.createElement("strong");
-  heading.textContent = `SlopBlock ${result.score}: ${verdictText}`;
+  heading.textContent = `SlopBlock — ${verdictText}`;
   const detail = document.createElement("span");
   detail.textContent = reasons || result.action;
+  summary.title = `Score ${result.score} · ${positiveMatches.map((match) => match.ruleId).join(", ")}`;
   summary.append(heading, detail);
   banner.append(summary);
 
@@ -215,7 +297,8 @@ function applyDetailVerdict(container: HTMLElement, result: ScoreResult, snapsho
   if (snapshot.idHint || allowTermFromTitle(snapshot.title)) {
     const allowButton = document.createElement("button");
     allowButton.type = "button";
-    allowButton.textContent = snapshot.idHint ? "Allow this item" : "Allow this title";
+    allowButton.textContent = "Don't flag this item";
+    allowButton.title = "Remove this warning and always show this listing";
     allowButton.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -224,13 +307,13 @@ function applyDetailVerdict(container: HTMLElement, result: ScoreResult, snapsho
     actions.append(allowButton);
   }
 
-  const topRuleId = controlRuleIdForMatch(positiveMatches[0]?.ruleId);
-  if (topRuleId) {
+  const topRuleId = controlRuleIdForMatch(topMatch?.ruleId);
+  if (topRuleId && topMatch) {
     const disableRuleButton = document.createElement("button");
     disableRuleButton.type = "button";
     disableRuleButton.dataset.variant = "quiet";
-    disableRuleButton.textContent = "Disable top rule";
-    disableRuleButton.title = topRuleId;
+    disableRuleButton.textContent = "Turn off this rule";
+    disableRuleButton.title = `Stop filtering for "${topMatch.reason}" everywhere (${topRuleId})`;
     disableRuleButton.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -517,16 +600,18 @@ function addBadge(card: HTMLElement, result: ScoreResult, snapshot: ListingSnaps
   const badge = document.createElement("div");
   badge.className = "slopblock-badge";
   const positiveMatches = result.matches.filter((match) => match.weight > 0);
+  const topMatch = positiveMatches[0];
   const reasons = positiveMatches
     .slice(0, 3)
     .map((match) => match.reason)
     .join(" + ");
   const summary = document.createElement("div");
   summary.className = "slopblock-badge-summary";
-  summary.textContent = `SlopBlock ${result.score}: ${reasons || result.action}`;
+  summary.textContent = `SlopBlock: ${reasons || result.action}`;
+  badge.title = `Score ${result.score} · ${positiveMatches.map((match) => match.ruleId).join(", ")}`;
   badge.append(summary);
 
-  const topRuleId = controlRuleIdForMatch(positiveMatches[0]?.ruleId);
+  const topRuleId = controlRuleIdForMatch(topMatch?.ruleId);
   const titleAllowTerm = allowTermFromTitle(snapshot.title);
   if (topRuleId || snapshot.idHint || titleAllowTerm) {
     const actions = document.createElement("div");
@@ -535,7 +620,10 @@ function addBadge(card: HTMLElement, result: ScoreResult, snapshot: ListingSnaps
     if (snapshot.idHint || titleAllowTerm) {
       const allowButton = document.createElement("button");
       allowButton.type = "button";
-      allowButton.textContent = snapshot.idHint ? "Allow item" : "Allow title";
+      allowButton.textContent = "Show anyway";
+      allowButton.title = snapshot.idHint
+        ? "Always show this exact listing"
+        : `Always show listings titled "${titleAllowTerm}"`;
       allowButton.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -544,11 +632,11 @@ function addBadge(card: HTMLElement, result: ScoreResult, snapshot: ListingSnaps
       actions.append(allowButton);
     }
 
-    if (topRuleId) {
+    if (topRuleId && topMatch) {
       const disableRuleButton = document.createElement("button");
       disableRuleButton.type = "button";
-      disableRuleButton.textContent = "Disable top rule";
-      disableRuleButton.title = topRuleId;
+      disableRuleButton.textContent = "Turn off this rule";
+      disableRuleButton.title = `Stop filtering for "${topMatch.reason}" everywhere (${topRuleId})`;
       disableRuleButton.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();

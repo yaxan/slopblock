@@ -34,6 +34,9 @@ function check(name, condition, detail = "") {
 // ---------- fixture scenario ----------
 
 const FEED_CARDS = [
+  // Deep-scan targets: cards look innocent; evidence lives in the description.
+  { id: "2147792605766266", title: "Ayanna 6 Drawer Rattan Storage Dresser & Night Stands", price: "$125", location: "San Mateo, CA" },
+  { id: "6001", title: "Solid oak dresser - moving sale", price: "$180", location: "San Mateo, CA" },
   { id: "9001", title: "IKEA Kallax 4x4 shelf white", price: "$60", location: "Toronto, ON" },
   { id: "9002", title: "Amazon Echo Dot 4th gen", price: "$25", location: "Toronto, ON", justListed: true },
   { id: "9003", title: "2015 Honda Civic LX", price: "CA$9,500", oldPrice: "CA$11,000", location: "Toronto, ON", extra: "142K km" },
@@ -246,7 +249,7 @@ try {
   console.log("\n== feed scan ==");
   await page.goto("https://www.facebook.com/marketplace/", { waitUntil: "domcontentloaded" });
   try {
-    await waitForScan(page, 19);
+    await waitForScan(page, 21);
   } catch (error) {
     const debug = await page.evaluate(() => ({
       title: document.title,
@@ -300,7 +303,7 @@ try {
   await page.evaluate((html) => {
     document.getElementById("grid-sections")?.insertAdjacentHTML("beforeend", html);
   }, scrollHtml);
-  await waitForScan(page, 23);
+  await waitForScan(page, 25);
   await page.waitForTimeout(400);
   states = await cardStates(page);
   check("appended legit cards stay visible", states["9101"]?.action === "allow" && states["9102"]?.action === "allow");
@@ -326,7 +329,7 @@ try {
         continue;
       }
       const button = Array.from(card.querySelectorAll(".slopblock-badge button")).find((b) =>
-        /allow item/i.test(b.textContent ?? "")
+        /show anyway/i.test(b.textContent ?? "")
       );
       if (button) {
         button.click();
@@ -335,10 +338,50 @@ try {
     }
     return false;
   });
-  check("allow-item button exists on badge", allowClicked);
+  check("show-anyway button exists on badge", allowClicked);
   await page.waitForTimeout(700);
   states = await cardStates(page);
   check("allowed item becomes visible", states["9007"]?.action === "allow", JSON.stringify(states["9007"]));
+
+  console.log("\n== deep scan from the feed ==");
+  // Collapse the preview state again so hides are real display:none hides.
+  await page.click('[data-slopblock-action="toggle-hidden"]');
+  await page.waitForTimeout(400);
+
+  await page.waitForFunction(
+    () => {
+      const card = document.querySelector('[data-slopblock-item-id="2147792605766266"]');
+      return card?.getAttribute("data-slopblock-processed") === "hide";
+    },
+    undefined,
+    { timeout: 25000 }
+  );
+  states = await cardStates(page);
+  check(
+    "deep scan hides the Wayfair dropship card from the feed without clicking in",
+    states["2147792605766266"]?.action === "hide" && states["2147792605766266"]?.displayNone,
+    JSON.stringify(states["2147792605766266"])
+  );
+  check("deep scan leaves the legit moving-sale card visible", states["6001"]?.action === "allow", JSON.stringify(states["6001"]));
+
+  const deepPopup = await context.newPage();
+  await deepPopup.goto(`chrome-extension://${extension.id}/popup.html`);
+  await deepPopup.waitForSelector("#deepScan");
+  check("deep scan toggle is on by default", await deepPopup.isChecked("#deepScan"));
+  await deepPopup.uncheck("#deepScan");
+  await page.bringToFront();
+  await page.waitForTimeout(900);
+  states = await cardStates(page);
+  check(
+    "turning deep scan off restores the card (card text alone is innocent)",
+    states["2147792605766266"]?.action === "allow",
+    JSON.stringify(states["2147792605766266"])
+  );
+  await deepPopup.check("#deepScan");
+  await page.waitForTimeout(900);
+  states = await cardStates(page);
+  check("turning deep scan back on re-hides it from cache", states["2147792605766266"]?.action === "hide");
+  await deepPopup.close();
 
   console.log("\n== item detail pages ==");
   const detailPage = await context.newPage();
@@ -367,7 +410,7 @@ try {
 
   await detailPage.evaluate(() => {
     const button = Array.from(document.querySelectorAll(".slopblock-detail-banner button")).find((b) =>
-      /allow this item/i.test(b.textContent ?? "")
+      /flag this item/i.test(b.textContent ?? "")
     );
     button?.click();
   });

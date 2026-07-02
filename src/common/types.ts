@@ -87,6 +87,8 @@ export type SlopBlockSettings = {
   aggressiveness: Aggressiveness;
   filterMode: FilterMode;
   showReasons: boolean;
+  /** Background-fetch listing pages to score descriptions from the feed. */
+  deepScan: boolean;
   enabledCategories: Record<RuleCategoryId, boolean>;
   disabledRuleIds: string[];
   customBlockTerms: string[];

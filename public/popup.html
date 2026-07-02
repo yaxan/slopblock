@@ -62,6 +62,13 @@
             <span class="toggle-track" aria-hidden="true"></span>
           </span>
         </label>
+        <label class="switch-row" title="Loads listings from Facebook in the background (the same request as opening them) so spam hiding in descriptions is caught while you browse. Nothing leaves your browser.">
+          <span>Deep scan descriptions<br><small class="switch-hint">Catches spam whose evidence only shows after clicking a listing</small></span>
+          <span class="toggle">
+            <input id="deepScan" type="checkbox">
+            <span class="toggle-track" aria-hidden="true"></span>
+          </span>
+        </label>
       </section>
 
       <section class="panel">
@@ -74,7 +81,7 @@
 
       <footer class="footer">
         <button id="rescan" type="button" data-variant="quiet">Rescan page</button>
-        <button id="copyDiagnostics" type="button" data-variant="quiet">Copy diagnostics</button>
+        <button id="copyDiagnostics" type="button" data-variant="quiet" title="Copies a local JSON report of this page's filtering decisions for debugging">Copy debug data</button>
         <a href="options.html" target="_blank" rel="noreferrer">All rules &amp; settings</a>
       </footer>
 

@@ -28,6 +28,16 @@ The rule weights were tuned against a corpus of real listings fetched from publi
 3. **Definitive signals are not rescued by condition words.** "Good condition" doesn't make a SOLD post buyable, so gem-positive offsets are ignored once a 70+ signal fires. User allowlists still always win.
 4. **Hide requires certainty.** Single medium-confidence rules can at most dim. Hiding requires either one near-certain signal or several independent ones.
 
+## Deep scan: judging feed cards by their descriptions
+
+Feed cards expose only price/title/location, so description-only slop is undetectable from card text no matter how good the rules are. With **deep scan** (default on; popup and settings switch), SlopBlock background-fetches listing pages from facebook.com — the identical same-origin request the browser makes when the user clicks a card — and extracts only the seller-written fields (title, price, description, sold/pending state) from the page's embedded listing data:
+
+- Viewport-first and throttled (one fetch at a time with jittered ~1.1s spacing, hard per-page cap, error backoff, paused while the tab is hidden) so request volume stays proportional to what the user actually looks at.
+- The deep result is merged with the card result and the stronger verdict wins, so flood/sponsored context from the card is never lost.
+- Verdicts are cached in memory only for the tab session — no listing history is stored. Visiting a listing's detail page feeds the same cache, so a listing you opened once is judged on full text when it reappears in the feed.
+- Extraction reads listing fields only; if they can't be found (login walls, layout changes), the card is left alone.
+- Bonus: `is_sold`/`is_pending` flags from the listing data catch dead listings from the feed.
+
 ## Item detail pages: where descriptions get scanned
 
 Feed cards only expose price/title/location, so description-only slop (a card that says nothing but a description full of Wayfair catalog links) is invisible at browse time — that is a property of what Facebook renders, not a rule gap. SlopBlock therefore scans the **item detail page** (`/marketplace/item/<id>`, including the dialog variant) separately:
@@ -85,9 +95,9 @@ Every layer of the tuning story, from fastest to deepest:
 
 ## Verification
 
-- `npm test` — 86 unit tests (scoring, flood analysis, DOM and detail-page extraction, UI plumbing).
+- `npm test` — 91 unit tests (scoring, flood analysis, DOM and detail-page extraction, UI plumbing).
 - `npm run eval` — scores the real-listing corpus (`eval/corpus/`) at every strength in both card view (what feed cards show) and detail view; reports FP/miss rates and per-rule noise. `--gate` fails on any legit dim/hide at balanced; wired into `npm run verify`.
-- `npm run e2e` — loads the built extension into real Chromium against a high-fidelity Marketplace DOM fixture (reconstructed from public scraper sources, `eval/raw/fb-dom-notes.md`) and verifies hiding, flood collapse, sponsored-cell removal, infinite scroll, badges, allow-item persistence, popup summary/settings sync, item detail-page banners, and the options tester — 39 checks.
+- `npm run e2e` — loads the built extension into real Chromium against a high-fidelity Marketplace DOM fixture (reconstructed from public scraper sources, `eval/raw/fb-dom-notes.md`) and verifies hiding, flood collapse, sponsored-cell removal, infinite scroll, badges, allow-item persistence, popup summary/settings sync, item detail-page banners, deep-scan feed detection, and the options tester — 44 checks.
 - `npm run verify` — typecheck + tests + eval gate + build + audit + packaging checks.
 
 Current eval results (195-entry corpus: 123 real+curated legit, 53 real slop, 19 borderline): **0 legit listings labeled, dimmed, or hidden at any strength**; 98.1% of slop actioned in detail view at balanced (1 exotic miss), 58.5% actioned from card text alone.

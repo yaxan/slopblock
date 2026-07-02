@@ -16,6 +16,7 @@ const enabledInput = element<HTMLInputElement>("enabled");
 const aggressivenessGroup = element<HTMLDivElement>("aggressivenessGroup");
 const filterModeGroup = element<HTMLDivElement>("filterModeGroup");
 const showReasonsInput = element<HTMLInputElement>("showReasons");
+const deepScanInput = element<HTMLInputElement>("deepScan");
 const pageSummaryNode = element<HTMLDivElement>("pageSummary");
 const quickRuleTogglesNode = element<HTMLDivElement>("quickRuleToggles");
 const statusNode = element<HTMLElement>("status");
@@ -36,6 +37,7 @@ function render(): void {
   checkRadio(aggressivenessGroup, settings.aggressiveness);
   checkRadio(filterModeGroup, settings.filterMode);
   showReasonsInput.checked = settings.showReasons;
+  deepScanInput.checked = settings.deepScan;
   renderQuickRuleToggles();
 }
 
@@ -52,6 +54,7 @@ function radioValue(group: HTMLElement): string | undefined {
 function bindEvents(): void {
   enabledInput.addEventListener("change", () => updateAndSave({ enabled: enabledInput.checked }));
   showReasonsInput.addEventListener("change", () => updateAndSave({ showReasons: showReasonsInput.checked }));
+  deepScanInput.addEventListener("change", () => updateAndSave({ deepScan: deepScanInput.checked }));
   aggressivenessGroup.addEventListener("change", () =>
     updateAndSave({ aggressiveness: radioValue(aggressivenessGroup) as Aggressiveness })
   );
@@ -307,7 +310,7 @@ function renderTopRules(rules: ReturnType<typeof summarizeContentDecisions>["top
   block.className = "summary-block";
   const title = document.createElement("div");
   title.className = "summary-title";
-  title.textContent = "Top triggers";
+  title.textContent = "Filtered because";
 
   if (!rules.length) {
     const empty = document.createElement("p");
@@ -332,10 +335,9 @@ function renderTopRules(rules: ReturnType<typeof summarizeContentDecisions>["top
       actions.className = "summary-actions";
       const disableButton = document.createElement("button");
       disableButton.type = "button";
-      disableButton.textContent = "Disable";
+      disableButton.textContent = "Turn off";
       disableButton.dataset.disableRuleId = rule.controlRuleId;
-      disableButton.title =
-        rule.controlRuleId === rule.ruleId ? `Disable ${rule.ruleId}` : `Disable ${rule.controlRuleId} control`;
+      disableButton.title = `Stop filtering for "${rule.reason}" everywhere (${rule.controlRuleId})`;
       actions.append(disableButton);
       item.append(heading, details, code, actions);
       return item;
@@ -351,7 +353,7 @@ function renderHiddenExamples(examples: ReturnType<typeof summarizeContentDecisi
   block.className = "summary-block";
   const title = document.createElement("div");
   title.className = "summary-title";
-  title.textContent = "Hidden examples";
+  title.textContent = "Hidden on this page";
 
   if (!examples.length) {
     const empty = document.createElement("p");
@@ -386,13 +388,13 @@ function renderHiddenExamples(examples: ReturnType<typeof summarizeContentDecisi
         const allowButton = document.createElement("button");
         allowButton.type = "button";
         if (example.idHint) {
-          allowButton.textContent = "Allow item";
+          allowButton.textContent = "Show anyway";
           allowButton.dataset.allowItemId = example.idHint;
-          allowButton.title = `Allow Marketplace item ${example.idHint}`;
+          allowButton.title = "Always show this exact listing";
         } else if (example.allowTerm) {
-          allowButton.textContent = "Allow title";
+          allowButton.textContent = "Show anyway";
           allowButton.dataset.allowTerm = example.allowTerm;
-          allowButton.title = `Allow future listings matching "${example.allowTerm}"`;
+          allowButton.title = `Always show listings titled "${example.allowTerm}"`;
         }
         actions.append(allowButton);
         item.append(actions);

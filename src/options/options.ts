@@ -11,6 +11,7 @@ const customVendorTerms = element<HTMLTextAreaElement>("customVendorTerms");
 const customAllowTerms = element<HTMLTextAreaElement>("customAllowTerms");
 const customAllowItemIds = element<HTMLTextAreaElement>("customAllowItemIds");
 const showReasonsInput = element<HTMLInputElement>("showReasons");
+const deepScanInput = element<HTMLInputElement>("deepScan");
 const categoriesNode = element<HTMLDivElement>("categories");
 const quickRuleTogglesNode = element<HTMLDivElement>("quickRuleToggles");
 const rulesNode = element<HTMLDivElement>("rules");
@@ -53,6 +54,7 @@ function render(): void {
   customAllowTerms.value = serializeTerms(settings.customAllowTerms);
   customAllowItemIds.value = serializeTerms(settings.customAllowItemIds);
   showReasonsInput.checked = settings.showReasons;
+  deepScanInput.checked = settings.deepScan;
   renderCategories();
   renderQuickRuleToggles();
   renderRules();
@@ -69,6 +71,11 @@ function bindEvents(): void {
   showReasonsInput.addEventListener("change", () => {
     settings = { ...settings, showReasons: showReasonsInput.checked };
     void persist();
+  });
+
+  deepScanInput.addEventListener("change", () => {
+    settings = { ...settings, deepScan: deepScanInput.checked };
+    void persist(deepScanInput.checked ? "Deep scan on" : "Deep scan off");
   });
 
   categoriesNode.addEventListener("change", (event) => {

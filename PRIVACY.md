@@ -15,6 +15,10 @@ The extension does not include:
 - Remote rule updates.
 - Listing-history upload or storage.
 
+## Deep Scan
+
+The optional "Deep scan descriptions" feature (on by default, toggleable in the popup and settings) fetches Marketplace listing pages directly from facebook.com in the background using your existing Facebook session — the same request your browser makes when you click a listing. This is used only to read the listing's own title, price, and description so spam can be detected before you open it. These requests go only to facebook.com; results are kept in memory for the current tab session only and are never stored or transmitted anywhere.
+
 ## Local Storage
 
 SlopBlock stores only user-controlled settings in Chrome extension storage:

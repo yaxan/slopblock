@@ -146,9 +146,22 @@ export function renderItemDetailPage(listing, { related = [], truncated = false 
        </script>`
     : `${visibleParagraphs}<div>${linkBlock}</div>`;
 
+  const embeddedJson = JSON.stringify({
+    require: [["ScheduledServerJS", null, null, [{ __bbox: { result: { data: { viewer: { marketplace_product_details_page: { target: {
+      __typename: "MarketplaceProductItem",
+      id: listing.id ?? "0",
+      marketplace_listing_title: listing.title,
+      redacted_description: { text: [...(listing.description ?? []), ...(listing.links ?? [])].join("\n") },
+      formatted_amount: listing.price,
+      is_sold: Boolean(listing.sold),
+      is_pending: false
+    } } } } } } }]]]
+  });
+
   return `<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>${escapeHtml(listing.title)} - Marketplace</title>
+<script type="application/json" data-sjs>${embeddedJson.replaceAll("</", "<\\/")}</script>
 <style>
   body { margin: 0; font-family: Helvetica, Arial, sans-serif; background: #f0f2f5; }
   [role="main"] { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; padding: 16px; }
