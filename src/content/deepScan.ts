@@ -20,15 +20,16 @@ import { extractDetailSnapshot, findDetailContainer } from "./detail";
  *    alone rather than scored against page chrome.
  */
 
-// Concurrency is the whole point: a serial ~1/second crawl took ~25s to vet
-// a full page, which defeats a time-saving tool. Browsers open ~6 connections
-// per host and users routinely middle-click a dozen listings into tabs, so a
-// bounded parallel prefetch of what's on screen is ordinary traffic. Safety
+// Concurrency is the whole point: a serial ~1/second crawl took ~25s to vet a
+// page, which defeats a time-saving tool. Facebook serves over HTTP/2, which
+// multiplexes many requests over ONE connection — so the classic "6 connections
+// per host" limit doesn't apply, and 10 concurrent stream fetches read as a
+// single busy connection (exactly what FB's own app does), not a swarm. Safety
 // comes from a rolling-window rate cap + adaptive backoff, not from crawling.
-const MAX_CONCURRENT = 6;
-const DISPATCH_STAGGER_MS = 35;
+const MAX_CONCURRENT = 10;
+const DISPATCH_STAGGER_MS = 8;
 const RATE_WINDOW_MS = 60_000;
-const MAX_FETCHES_PER_WINDOW = 90;
+const MAX_FETCHES_PER_WINDOW = 120;
 const ERROR_BACKOFF_MS = 45_000;
 const RATE_LIMIT_BACKOFF_MS = 90_000;
 const NO_DATA_TTL_MS = 30 * 60 * 1000;
@@ -69,6 +70,12 @@ export type DeepScanner = {
   setSnapshot(itemId: string, snapshot: ListingSnapshot): void;
   /** True if this listing has been scanned (even if no data was found). */
   has(itemId: string): boolean;
+  /**
+   * Drop still-queued (not-yet-started) listings that no longer pass the
+   * predicate — e.g. cards scrolled far off-screen — so the rate budget and
+   * concurrency go to what the user is actually looking at.
+   */
+  prune(shouldKeep: (itemId: string) => boolean): void;
   /** Local counters for the debug report — which fetches parsed, and how failures split. */
   stats(): DeepScanStats;
 };
@@ -273,6 +280,19 @@ export function createDeepScanner(onVerdict: (itemId: string) => void): DeepScan
 
     has(itemId: string): boolean {
       return isFresh(cache.get(itemId));
+    },
+
+    prune(shouldKeep: (itemId: string) => boolean): void {
+      for (let index = queue.length - 1; index >= 0; index -= 1) {
+        const itemId = queue[index];
+        if (itemId !== undefined && !shouldKeep(itemId)) {
+          queue.splice(index, 1);
+          queued.delete(itemId);
+          // Un-request it so the progress denominator stays honest; a scroll
+          // back into view will re-queue and re-count it.
+          requestedTotal = Math.max(completedTotal, requestedTotal - 1);
+        }
+      }
     },
 
     stats(): DeepScanStats {

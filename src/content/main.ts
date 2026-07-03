@@ -77,6 +77,8 @@ function queueDeepScans(): void {
 
   const viewportHeight = window.innerHeight;
   const lookahead = viewportHeight * 2;
+  const nearViewport = new Set<string>();
+
   for (const card of Array.from(document.querySelectorAll<HTMLElement>(`[${PROCESSED_ATTR}]`))) {
     const itemId = card.dataset.slopblockItemId;
     if (!itemId || deepScanner.has(itemId)) {
@@ -92,11 +94,16 @@ function queueDeepScans(): void {
       continue;
     }
 
+    nearViewport.add(itemId);
     // Cards actually on screen are what the user might click next: fetch
     // those before the look-ahead ring so their verdicts land first.
     const onScreen = rect.bottom > 0 && rect.top < viewportHeight;
     deepScanner.request(itemId, onScreen);
   }
+
+  // Fast scrolling queues cards that are now far behind; drop the ones no
+  // longer near the viewport so fetches keep pace with what's on screen.
+  deepScanner.prune((itemId) => nearViewport.has(itemId));
 }
 
 function observeMarketplace(): void {

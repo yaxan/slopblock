@@ -156,14 +156,71 @@ test("deep scan fetches concurrently (not one-at-a-time) and respects the cap", 
 
     await new Promise((resolve) => setTimeout(resolve, 800));
 
-    assert.ok(peak >= 3, `expected concurrent fetches, peak was ${peak}`);
-    assert.ok(peak <= 6, `expected concurrency capped at 6, peak was ${peak}`);
+    assert.ok(peak >= 4, `expected concurrent fetches, peak was ${peak}`);
+    assert.ok(peak <= 10, `expected concurrency capped at 10, peak was ${peak}`);
     assert.equal(started, 12, "all listings fetched");
     assert.equal(verdicts, 12, "all produced verdicts");
     assert.equal(scanner.stats().completed, 12);
     assert.ok(scanner.getSnapshot("1001"), "snapshot cached");
   } finally {
     for (const [key, value] of Object.entries(priorGlobals)) {
+      if (value === undefined) {
+        delete (globalThis as Record<string, unknown>)[key];
+      } else {
+        (globalThis as Record<string, unknown>)[key] = value;
+      }
+    }
+  }
+});
+
+test("prune drops queued off-screen listings and keeps the progress counter honest", async () => {
+  const dom = new JSDOM("<!doctype html><html><body></body></html>", {
+    url: "https://www.facebook.com/marketplace/",
+    pretendToBeVisual: true
+  });
+  const prior = {
+    window: (globalThis as Record<string, unknown>).window,
+    document: (globalThis as Record<string, unknown>).document,
+    fetch: (globalThis as Record<string, unknown>).fetch,
+    DOMParser: (globalThis as Record<string, unknown>).DOMParser
+  };
+  (globalThis as Record<string, unknown>).window = dom.window;
+  (globalThis as Record<string, unknown>).document = dom.window.document;
+  (globalThis as Record<string, unknown>).DOMParser = dom.window.DOMParser;
+
+  // Block fetches indefinitely so items stay queued while we prune.
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  (globalThis as Record<string, unknown>).fetch = async (url: string) => {
+    await gate;
+    const id = url.match(/item\/(\d+)/)?.[1] ?? "0";
+    return { ok: true, status: 200, url, text: async () => `<script>{"marketplace_listing_title":"I ${id}","formatted_amount":"$1"}</script>` };
+  };
+
+  try {
+    const { createDeepScanner } = await import("../src/content/deepScan");
+    const scanner = createDeepScanner(() => {});
+    for (let i = 1; i <= 20; i += 1) {
+      scanner.request(String(2000 + i));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.equal(scanner.stats().requested, 20);
+
+    // Keep only 5 of the still-queued items.
+    const keep = new Set(["2016", "2017", "2018", "2019", "2020"]);
+    scanner.prune((itemId) => keep.has(itemId));
+
+    const afterPrune = scanner.stats();
+    // 10 are in-flight (blocked), pruning affects only the ~10 still queued.
+    assert.ok(afterPrune.requested < 20, `requested should drop after prune, was ${afterPrune.requested}`);
+    assert.ok(afterPrune.requested >= afterPrune.completed, "requested never dips below completed");
+
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  } finally {
+    for (const [key, value] of Object.entries(prior)) {
       if (value === undefined) {
         delete (globalThis as Record<string, unknown>)[key];
       } else {
