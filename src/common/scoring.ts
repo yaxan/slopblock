@@ -27,7 +27,7 @@ const CONDITION_WORDS =
 // "Condition New" is the structured-metadata form of "brand new" and is
 // retail context, not human context ("Condition Like New" is excluded).
 const RETAIL_STYLE_WORDS =
-  /\b(?:brand\s+new|new\s+in\s+box|sealed|inventory|stock|order|wholesale|warehouse|showroom|tax|financing|condition\s*:?\s*(?:brand\s+)?new\b)/i;
+  /\b(?:brand[\s-]?new|new\s+in\s+box|sealed|inventory|stock|order|wholesale|warehouse|showroom|tax|financing|condition\s*:?\s*(?:brand[\s-]?)?new\b)/i;
 
 const VENDOR_BRANDS =
   /\b(?:amazon|temu|aliexpress|alibaba|wish|shein|wayfair|walmart|target|ikea|costco|home\s*depot|lowe'?s|overstock|dhgate|ashley|west\s+elm|pottery\s+barn|crate\s*&?\s*barrel|cb2|restoration\s+hardware|rh)\b/gi;
@@ -174,7 +174,7 @@ function addBaitPricingMatch(
   // ("$15 each or $50 for all") and intentionally does NOT count as bait.
   const hasPriceDisclosure =
     /\b(?:actual|real|regular|full)\s+price\b/i.test(allText) ||
-    /\b(?:prices?\s+in\s+(?:description|desc)|read\s+(?:the\s+)?description\s+(?:for\s+)?price|description\s+has\s+(?:the\s+)?price|deposit|down\s+payment|per\s+month|monthly|not\s+(?:the\s+)?actual\s+price|message\s+(?:me\s+)?(?:for\s+)?price|dm\s+(?:me\s+)?(?:for\s+)?price|ask\s+for\s+price|price\s+varies|listed\s+(?:at\s+\$?\d+\s+)?for\s+(?:visibility|the\s+algorithm|search))\b/i.test(
+    /\b(?:prices?\s+in\s+(?:description|desc)|(?:read|see|check)\s+(?:the\s+)?desc(?:ription)?\b|description\s+has\s+(?:the\s+)?price|deposit|down\s+payment|per\s+month|monthly|not\s+(?:the\s+)?actual\s+price|message\s+(?:me\s+)?(?:for\s+)?price|dm\s+(?:me\s+)?(?:for\s+)?price|ask\s+for\s+price|price\s+varies|listed\s+(?:at\s+\$?\d+\s+)?for\s+(?:visibility|the\s+algorithm|search))\b/i.test(
       allText
     );
 

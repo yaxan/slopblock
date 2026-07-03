@@ -119,5 +119,27 @@
     "location": "San Mateo, CA",
     "body": "Details Condition New Stylish dresser has 6 drawers with rattan fronts. Light wood finish and gold handles. Nightstands with charging stations included! All in perfect condition! https://www.wayfair.com/furniture/pdp/bay-isle-home-ayanna-6-drawer-rattan-storage-dresser-byil6879.html?piid=89164407%2C113652794%2C119021716 https://www.wayfair.com/furniture/pdp/beachcrest-home-kunkle-manufactured-wood-rattan-nightstand-with-charging-station-w011178059.html?piid=1188330327",
     "note": "Real dropship listing that slipped through: Condition New + Wayfair pdp catalog links, zero ownership context. Card view shows nothing; must be caught by detail scan."
+  },
+  {
+    "id": "web-s-012",
+    "label": "slop",
+    "kind": "shop-catalog-ad",
+    "source": "user screenshot 2026-07-03, dresser search Sunnyvale CA (IKEA shop product card)",
+    "title": "IKEA storemolla dresser",
+    "price": "$400",
+    "location": "Mountain View, CA",
+    "body": "View in 3D\nChoose color: Light grey-beige stained",
+    "note": "Retailer shop-catalog product card embedded in search results: 3D preview + color configurator. Not a person selling anything."
+  },
+  {
+    "id": "web-s-013",
+    "label": "slop",
+    "kind": "bait-price",
+    "source": "user screenshot 2026-07-03, dresser search (junk-pile photo, Free placeholder)",
+    "title": "Free read description",
+    "price": "Free",
+    "location": "Belmont, CA",
+    "body": "",
+    "note": "Classic free-placeholder bait without the word price. Dim from card text; deep scan hides once description reveals an amount."
   }
 ]

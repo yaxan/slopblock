@@ -26,10 +26,17 @@ import { extractDetailSnapshot, findDetailContainer } from "./detail";
 // per host" limit doesn't apply, and 10 concurrent stream fetches read as a
 // single busy connection (exactly what FB's own app does), not a swarm. Safety
 // comes from a rolling-window rate cap + adaptive backoff, not from crawling.
-const MAX_CONCURRENT = 10;
-const DISPATCH_STAGGER_MS = 8;
+const MAX_CONCURRENT = 14;
+const DISPATCH_STAGGER_MS = 5;
 const RATE_WINDOW_MS = 60_000;
-const MAX_FETCHES_PER_WINDOW = 120;
+// Adaptive rate (AIMD): run fast while Facebook is happy, back off hard the
+// moment it isn't. Start at the base, add a step for every clean interval,
+// halve on any 429/503.
+const RATE_BASE_PER_MIN = 120;
+const RATE_MAX_PER_MIN = 360;
+const RATE_MIN_PER_MIN = 60;
+const RATE_STEP_PER_MIN = 40;
+const RATE_RAISE_INTERVAL_MS = 15_000;
 const ERROR_BACKOFF_MS = 45_000;
 const RATE_LIMIT_BACKOFF_MS = 90_000;
 const NO_DATA_TTL_MS = 30 * 60 * 1000;
@@ -49,10 +56,12 @@ export type DeepScanStats = {
   noData: number;
   errors: number;
   pending: number;
-  /** Total ever requested this page (monotonic) — the progress denominator. */
+  /** Requested this page view — reset when the page/search changes. */
   requested: number;
-  /** Total fetches finished this page (monotonic) — the progress numerator. */
+  /** Completed this page view — reset when the page/search changes. */
   completed: number;
+  /** Current adaptive fetch budget (per minute). */
+  targetRatePerMin: number;
   backoffMsRemaining: number;
   lastFailures: DeepScanFailure[];
 };
@@ -71,6 +80,12 @@ export type DeepScanner = {
   /** True if this listing has been scanned (even if no data was found). */
   has(itemId: string): boolean;
   /**
+   * Start a fresh progress window (new page/search). Keeps the verdict cache
+   * — revisited listings stay instant — but re-bases the requested/completed
+   * counters so progress reflects the current page view.
+   */
+  resetPageCounters(): void;
+  /**
    * Drop still-queued (not-yet-started) listings that no longer pass the
    * predicate — e.g. cards scrolled far off-screen — so the rate budget and
    * concurrency go to what the user is actually looking at.
@@ -87,6 +102,9 @@ export function createDeepScanner(onVerdict: (itemId: string) => void): DeepScan
   const recentFetchTimes: number[] = [];
   let requestedTotal = 0;
   let completedTotal = 0;
+  let targetRatePerMin = RATE_BASE_PER_MIN;
+  let lastRateRaiseAt = Date.now();
+  let errorsSinceRaise = 0;
   let fetchCount = 0;
   let parsedFromJson = 0;
   let parsedFromDom = 0;
@@ -110,7 +128,20 @@ export function createDeepScanner(onVerdict: (itemId: string) => void): DeepScan
     while (recentFetchTimes.length > 0 && (recentFetchTimes[0] ?? 0) < cutoff) {
       recentFetchTimes.shift();
     }
-    return recentFetchTimes.length < MAX_FETCHES_PER_WINDOW;
+    return recentFetchTimes.length < targetRatePerMin;
+  }
+
+  /** Additive increase: every clean interval earns a faster budget. */
+  function maybeRaiseRate(): void {
+    const now = Date.now();
+    if (now - lastRateRaiseAt < RATE_RAISE_INTERVAL_MS) {
+      return;
+    }
+    if (errorsSinceRaise === 0 && now >= backoffUntil) {
+      targetRatePerMin = Math.min(RATE_MAX_PER_MIN, targetRatePerMin + RATE_STEP_PER_MIN);
+    }
+    errorsSinceRaise = 0;
+    lastRateRaiseAt = now;
   }
 
   function scheduleRetry(delay: number): void {
@@ -194,6 +225,7 @@ export function createDeepScanner(onVerdict: (itemId: string) => void): DeepScan
       }
 
       consecutiveErrors = 0;
+      maybeRaiseRate();
       let snapshot = extractListingFromHtml(html, itemId);
       if (snapshot) {
         parsedFromJson += 1;
@@ -223,9 +255,14 @@ export function createDeepScanner(onVerdict: (itemId: string) => void): DeepScan
   function registerError(itemId: string, kind: string, backoffMs: number): void {
     consecutiveErrors += 1;
     errorCount += 1;
+    errorsSinceRaise += 1;
     recordFailure(itemId, kind);
     // Short error TTL so transient throttling retries soon.
     cache.set(itemId, { snapshot: null, fetchedAt: Date.now() - NO_DATA_TTL_MS + 60_000 });
+    // Multiplicative decrease on rate-limit signals: halve the budget.
+    if (kind.startsWith("rate-")) {
+      targetRatePerMin = Math.max(RATE_MIN_PER_MIN, Math.floor(targetRatePerMin / 2));
+    }
     // A rate-limit signal or a run of errors pauses all fetching.
     if (backoffMs >= RATE_LIMIT_BACKOFF_MS || consecutiveErrors >= 4) {
       backoffUntil = Date.now() + backoffMs;
@@ -282,6 +319,11 @@ export function createDeepScanner(onVerdict: (itemId: string) => void): DeepScan
       return isFresh(cache.get(itemId));
     },
 
+    resetPageCounters(): void {
+      requestedTotal = queue.length + activeFetches;
+      completedTotal = 0;
+    },
+
     prune(shouldKeep: (itemId: string) => boolean): void {
       for (let index = queue.length - 1; index >= 0; index -= 1) {
         const itemId = queue[index];
@@ -305,6 +347,7 @@ export function createDeepScanner(onVerdict: (itemId: string) => void): DeepScan
         pending: queue.length + activeFetches,
         requested: requestedTotal,
         completed: completedTotal,
+        targetRatePerMin,
         backoffMsRemaining: Math.max(0, backoffUntil - Date.now()),
         lastFailures: [...lastFailures]
       };

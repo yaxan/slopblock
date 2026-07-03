@@ -106,7 +106,7 @@ export const DEFAULT_RULES: RuleDefinition[] = [
     confidence: "high",
     fields: ["allText"],
     pattern:
-      /\b(?:available\s+in\s+(?:multiple|many|different|all)\s+(?:colors?|colours?|sizes?)|multiple\s+(?:colors?|colours?|sizes?)\s+available|choose\s+your\s+(?:color|colour|size)|all\s+sizes?\s+available|any\s+size\s+available|customize\s+your\s+order|made\s+to\s+order)\b/i
+      /\b(?:available\s+in\s+(?:multiple|many|different|all)\s+(?:colors?|colours?|sizes?)|multiple\s+(?:colors?|colours?|sizes?)\s+available|choose\s+(?:your\s+)?(?:colors?|colours?|sizes?)\b|all\s+sizes?\s+available|any\s+size\s+available|customize\s+your\s+order|made\s+to\s+order)\b/i
   },
   {
     id: "dropship-order-language",
@@ -127,6 +127,15 @@ export const DEFAULT_RULES: RuleDefinition[] = [
     fields: ["allText"],
     pattern:
       /\b(?:wholesale|bulk\s+(?:available|pricing|orders?)|supplier|factory\s+direct|imported\s+direct|warehouse\s+stock|new\s+inventory|reseller\s+pricing)\b/i
+  },
+  {
+    id: "shop-catalog-product",
+    category: "dropship-phrasing",
+    reason: "shop catalog product card",
+    weight: 44,
+    confidence: "high",
+    fields: ["allText"],
+    pattern: /\b(?:view\s+in\s+3d|see\s+it\s+in\s+your\s+space|choose\s+(?:a\s+)?(?:color|colour|finish|fabric)\s*:)\b/i
   },
   {
     id: "dropship-quantity",

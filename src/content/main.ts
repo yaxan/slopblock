@@ -76,7 +76,9 @@ function queueDeepScans(): void {
   }
 
   const viewportHeight = window.innerHeight;
-  const lookahead = viewportHeight * 2;
+  // One-and-a-quarter viewports ahead: with the concurrent fetcher this keeps
+  // verdicts ahead of scrolling without vetting listings never looked at.
+  const lookahead = viewportHeight * 1.25;
   const nearViewport = new Set<string>();
 
   for (const card of Array.from(document.querySelectorAll<HTMLElement>(`[${PROCESSED_ATTR}]`))) {
@@ -167,6 +169,13 @@ function scheduleScan(delay = 180): void {
 function rescanMarketplace(): void {
   if (!settings) {
     return;
+  }
+
+  // New page/search (SPA navigation): re-base deep-scan progress so the
+  // pill reflects this page view, not the whole session. Verdict cache stays.
+  if (window.location.href !== lastScanHref) {
+    lastScanHref = window.location.href;
+    deepScanner.resetPageCounters();
   }
 
   const isSellerProfileContext = isMarketplaceSellerProfileContext(window.location.href);
@@ -854,10 +863,9 @@ function updateToolbar(): void {
   toolbar.dataset.scanning = pending > 0 ? "true" : "false";
   const pillText = toolbar.querySelector<HTMLElement>(".slopblock-pill-text");
   if (pillText) {
-    pillText.textContent =
-      deepStats && pending > 0
-        ? `${filtered} filtered · checking ${deepStats.completed}/${deepStats.requested}`
-        : `${filtered} filtered`;
+    // "vetting N" = fetches still outstanding for this page view; it drains
+    // to zero and disappears (no session-lifetime ratios next to "Scanned").
+    pillText.textContent = pending > 0 ? `${filtered} filtered · vetting ${pending}` : `${filtered} filtered`;
   }
 
   const toggleButton = toolbar.querySelector<HTMLButtonElement>('[data-slopblock-action="toggle-hidden"]');
@@ -874,6 +882,7 @@ function updateToolbar(): void {
 }
 
 let deepScanPollTimer: number | undefined;
+let lastScanHref = "";
 
 function scheduleDeepScanPoll(): void {
   if (deepScanPollTimer !== undefined) {

@@ -39,6 +39,7 @@ const FEED_CARDS = [
   { id: "6001", title: "Solid oak dresser - moving sale", price: "$180", location: "San Mateo, CA" },
   { id: "4400", title: "2014 RAM 1500 crew cab 4x4", price: "$13,995", location: "San Jose, CA" },
   { id: "9001", title: "IKEA Kallax 4x4 shelf white", price: "$60", location: "Toronto, ON" },
+  { id: "9010", title: "IKEA Billy bookcase birch", price: "$25", location: "Toronto, ON" },
   { id: "9002", title: "Amazon Echo Dot 4th gen", price: "$25", location: "Toronto, ON", justListed: true },
   { id: "9003", title: "2015 Honda Civic LX", price: "CA$9,500", oldPrice: "CA$11,000", location: "Toronto, ON", extra: "142K km" },
   { id: "9004", title: "Free couch pickup today", price: "Free", location: "Scarborough, ON" },
@@ -288,7 +289,7 @@ try {
   console.log("\n== feed scan ==");
   await page.goto("https://www.facebook.com/marketplace/", { waitUntil: "domcontentloaded" });
   try {
-    await waitForScan(page, 27);
+    await waitForScan(page, 28);
   } catch (error) {
     const debug = await page.evaluate(() => ({
       title: document.title,
@@ -371,7 +372,7 @@ try {
   await page.evaluate((html) => {
     document.getElementById("grid-sections")?.insertAdjacentHTML("beforeend", html);
   }, scrollHtml);
-  await waitForScan(page, 31);
+  await waitForScan(page, 32);
   await page.waitForTimeout(400);
   states = await cardStates(page);
   check("appended legit cards stay visible", states["9101"]?.action === "allow" && states["9102"]?.action === "allow");
@@ -594,6 +595,31 @@ try {
   check("popup summary populates from marketplace tab", populated.stats.some((s) => /hidden/i.test(s ?? "")), JSON.stringify(populated.stats));
   check("popup summary lists top triggers and hidden examples", populated.topRules >= 2, String(populated.topRules));
   check("popup summary offers allow-item actions", populated.hasAllowButton);
+
+  // Vendor suggestion chip: 2+ visible IKEA matches in Filter mode should
+  // offer one-tap Hide all right in the summary.
+  const chip = await popup.evaluate(() => {
+    const button = document.querySelector("button[data-block-all-toggle-id='ikea']");
+    return { present: button !== null, text: button ? button.textContent : "" };
+  });
+  check("popup suggests Hide all when IKEA keeps passing the filter", chip.present, JSON.stringify(chip));
+  await popup.click("button[data-block-all-toggle-id='ikea']");
+  await page.bringToFront();
+  await page.waitForTimeout(900);
+  states = await cardStates(page);
+  check(
+    "suggestion chip hides all visible IKEA listings in one tap",
+    states["9001"]?.action === "hide" && states["9010"]?.action === "hide",
+    JSON.stringify([states["9001"], states["9010"]])
+  );
+  await popup.bringToFront();
+  await popup.waitForSelector("[data-quick-toggle-id='ikea'] button[data-mode='filter']");
+  await popup.click("[data-quick-toggle-id='ikea'] button[data-mode='filter']");
+  await page.bringToFront();
+  await page.waitForTimeout(900);
+  states = await cardStates(page);
+  check("restoring Filter brings the IKEA listings back", states["9001"]?.action === "allow" && states["9010"]?.action === "allow");
+  await popup.bringToFront();
 
   await popup.uncheck("#enabled");
   await page.bringToFront();

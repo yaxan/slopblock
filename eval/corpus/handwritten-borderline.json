@@ -97,5 +97,16 @@
     "location": "Toronto, ON",
     "body": "Owned for 3 years, gently used, no stains, from a smoke free home. Retails for $1,899, here is the exact one: https://www.westelm.com/products/andes-sofa-h1936/ selling because we are moving. Pickup only.",
     "note": "Legit seller pasting the retail product link for price comparison. Dim acceptable, hide is not."
+  },
+  {
+    "id": "hw-b-010",
+    "label": "borderline",
+    "kind": "brandnew-flipper",
+    "source": "user screenshot 2026-07-03 (Brandnew wood dresser, Campbell CA)",
+    "title": "Brandnew wood dresser with six drawers",
+    "price": "$650",
+    "location": "Campbell, CA",
+    "body": "",
+    "note": "One-word Brandnew now counts as retail context. Card text alone stays visible; deep scan/photo signals decide. Dim acceptable."
   }
 ]

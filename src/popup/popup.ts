@@ -1,6 +1,6 @@
 import { parseDecisionExportResponse } from "../common/decisionExport";
 import { summarizeContentDecisions } from "../common/decisionSummary";
-import { QUICK_RULE_TOGGLES, quickToggleMode, setQuickToggleMode } from "../common/ruleToggles";
+import { QUICK_RULE_TOGGLES, quickToggleMode, setQuickToggleMode, type QuickRuleToggle } from "../common/ruleToggles";
 import { normalizeSettings } from "../common/settings";
 import { loadSettings, saveSettings } from "../common/storage";
 import type {
@@ -116,6 +116,16 @@ function bindEvents(): void {
     const allowTermButton = target.closest<HTMLButtonElement>("button[data-allow-term]");
     if (allowTermButton?.dataset.allowTerm) {
       void allowTermFromPopup(allowTermButton.dataset.allowTerm);
+      return;
+    }
+
+    const blockAllButton = target.closest<HTMLButtonElement>("button[data-block-all-toggle-id]");
+    if (blockAllButton?.dataset.blockAllToggleId) {
+      const toggle = QUICK_RULE_TOGGLES.find((candidate) => candidate.id === blockAllButton.dataset.blockAllToggleId);
+      if (toggle) {
+        void updateAndSave(setQuickToggleMode(settings, toggle, "block"));
+        setStatus(`${toggle.label}: hiding all matches now.`);
+      }
     }
   });
 
@@ -338,9 +348,72 @@ function renderPageSummary(
   if (deepNote) {
     blocks.push(deepNote);
   }
+  const vendorSuggestions = renderVendorSuggestions(decisions);
+  if (vendorSuggestions) {
+    blocks.push(vendorSuggestions);
+  }
   blocks.push(renderTopRules(summary.topRules));
   blocks.push(renderHiddenExamples(summary.hiddenExamples));
   pageSummaryNode.replaceChildren(...blocks);
+}
+
+/**
+ * "Seeing too much X?" — when a vendor group (in Filter mode) matches several
+ * listings that are still visible on this page, offer its Hide-all mode right
+ * where the annoyance is felt, instead of hoping the user finds the toggle.
+ */
+function renderVendorSuggestions(decisions: ContentDecision[]): HTMLElement | null {
+  const suggestions: Array<{ toggle: QuickRuleToggle; count: number }> = [];
+
+  for (const toggle of QUICK_RULE_TOGGLES) {
+    if (toggle.kind !== "vendor" || quickToggleMode(settings, toggle) !== "filter") {
+      continue;
+    }
+
+    const memberRuleIds = new Set(toggle.ruleIds);
+    const visibleMatches = decisions.filter(
+      (decision) =>
+        decision.action !== "hide" &&
+        decision.matches.some((match) => memberRuleIds.has(match.ruleId) && match.weight > 0)
+    ).length;
+
+    if (visibleMatches >= 2) {
+      suggestions.push({ toggle, count: visibleMatches });
+    }
+  }
+
+  if (!suggestions.length) {
+    return null;
+  }
+
+  const block = document.createElement("section");
+  block.className = "summary-block";
+  const title = document.createElement("div");
+  title.className = "summary-title";
+  title.textContent = "Seeing too much?";
+  const list = document.createElement("ul");
+  list.className = "summary-list";
+  list.replaceChildren(
+    ...suggestions.map(({ toggle, count }) => {
+      const item = document.createElement("li");
+      const heading = document.createElement("strong");
+      heading.textContent = `${toggle.label} in ${count} visible listings`;
+      const note = document.createElement("span");
+      note.textContent = "They pass the slop filter — hide every match instead?";
+      const actions = document.createElement("div");
+      actions.className = "summary-actions";
+      const hideAllButton = document.createElement("button");
+      hideAllButton.type = "button";
+      hideAllButton.textContent = `Hide all ${toggle.label.toLowerCase()}`;
+      hideAllButton.dataset.blockAllToggleId = toggle.id;
+      hideAllButton.title = `Switch "${toggle.label}" to Hide all — removes every listing matching it`;
+      actions.append(hideAllButton);
+      item.append(heading, note, actions);
+      return item;
+    })
+  );
+  block.append(title, list);
+  return block;
 }
 
 function renderDeepScanNote(

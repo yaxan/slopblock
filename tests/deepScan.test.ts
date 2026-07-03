@@ -156,8 +156,8 @@ test("deep scan fetches concurrently (not one-at-a-time) and respects the cap", 
 
     await new Promise((resolve) => setTimeout(resolve, 800));
 
-    assert.ok(peak >= 4, `expected concurrent fetches, peak was ${peak}`);
-    assert.ok(peak <= 10, `expected concurrency capped at 10, peak was ${peak}`);
+    assert.ok(peak >= 5, `expected concurrent fetches, peak was ${peak}`);
+    assert.ok(peak <= 14, `expected concurrency capped at 14, peak was ${peak}`);
     assert.equal(started, 12, "all listings fetched");
     assert.equal(verdicts, 12, "all produced verdicts");
     assert.equal(scanner.stats().completed, 12);
