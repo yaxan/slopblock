@@ -1,11 +1,24 @@
 import { RULE_CATEGORIES } from "./categories";
 import type { ContentDecision, ContentStats, FilterAction, RuleMatch } from "./types";
 
+export type DeepScanDebug = {
+  fetched: number;
+  parsedFromJson: number;
+  parsedFromDom: number;
+  noData: number;
+  errors: number;
+  pending: number;
+  backoffMsRemaining: number;
+  lastFailures: Array<{ itemId: string; kind: string }>;
+};
+
 export type DecisionExportResponse = {
   ok: true;
   stats: ContentStats;
   showHidden: boolean;
   decisions: ContentDecision[];
+  /** Deep-scan health counters, for the copyable debug report. */
+  deepScan?: DeepScanDebug;
 };
 
 const FILTER_ACTIONS = new Set<FilterAction>(["allow", "label", "dim", "hide"]);
@@ -25,11 +38,54 @@ export function parseDecisionExportResponse(input: unknown): DecisionExportRespo
     return undefined;
   }
 
-  return {
+  const response: DecisionExportResponse = {
     ok: true,
     stats: input.stats,
     showHidden: input.showHidden,
     decisions: input.decisions
+  };
+
+  const deepScan = parseDeepScanDebug(input.deepScan);
+  if (deepScan) {
+    response.deepScan = deepScan;
+  }
+
+  return response;
+}
+
+function parseDeepScanDebug(input: unknown): DeepScanDebug | undefined {
+  if (!isRecord(input)) {
+    return undefined;
+  }
+
+  const numbers = ["fetched", "parsedFromJson", "parsedFromDom", "noData", "errors", "pending", "backoffMsRemaining"] as const;
+  for (const key of numbers) {
+    if (!isNonNegativeInteger(input[key])) {
+      return undefined;
+    }
+  }
+
+  if (!Array.isArray(input.lastFailures)) {
+    return undefined;
+  }
+
+  const lastFailures: Array<{ itemId: string; kind: string }> = [];
+  for (const failure of input.lastFailures) {
+    if (!isRecord(failure) || typeof failure.itemId !== "string" || typeof failure.kind !== "string") {
+      return undefined;
+    }
+    lastFailures.push({ itemId: failure.itemId, kind: failure.kind });
+  }
+
+  return {
+    fetched: input.fetched as number,
+    parsedFromJson: input.parsedFromJson as number,
+    parsedFromDom: input.parsedFromDom as number,
+    noData: input.noData as number,
+    errors: input.errors as number,
+    pending: input.pending as number,
+    backoffMsRemaining: input.backoffMsRemaining as number,
+    lastFailures
   };
 }
 

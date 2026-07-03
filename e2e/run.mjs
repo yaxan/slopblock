@@ -37,6 +37,7 @@ const FEED_CARDS = [
   // Deep-scan targets: cards look innocent; evidence lives in the description.
   { id: "2147792605766266", title: "Ayanna 6 Drawer Rattan Storage Dresser & Night Stands", price: "$125", location: "San Mateo, CA" },
   { id: "6001", title: "Solid oak dresser - moving sale", price: "$180", location: "San Mateo, CA" },
+  { id: "4400", title: "2014 RAM 1500 crew cab 4x4", price: "$13,995", location: "San Jose, CA" },
   { id: "9001", title: "IKEA Kallax 4x4 shelf white", price: "$60", location: "Toronto, ON" },
   { id: "9002", title: "Amazon Echo Dot 4th gen", price: "$25", location: "Toronto, ON", justListed: true },
   { id: "9003", title: "2015 Honda Civic LX", price: "CA$9,500", oldPrice: "CA$11,000", location: "Toronto, ON", extra: "142K km" },
@@ -113,6 +114,25 @@ function detailHtml(pathname) {
         links: WAYFAIR_LINKS
       },
       { related: RELATED_CARDS, truncated: true }
+    );
+  }
+
+  if (pathname.includes("/item/4400")) {
+    // Server-rendered dealer listing WITHOUT the embedded JSON payload —
+    // exercises the DOM-parser fallback (the reported vehicle-style case).
+    return renderItemDetailPage(
+      {
+        title: "2014 RAM 1500 crew cab 4x4",
+        price: "$13,995",
+        location: "San Jose, CA",
+        condition: "Used",
+        description: [
+          "Clean unit, runs great. Price plus tax, title, license and doc fee.",
+          "Financing available, everyone approved, bad credit ok. Visit our showroom today."
+        ],
+        links: []
+      },
+      { related: RELATED_CARDS, embedJson: false }
     );
   }
 
@@ -265,7 +285,7 @@ try {
   console.log("\n== feed scan ==");
   await page.goto("https://www.facebook.com/marketplace/", { waitUntil: "domcontentloaded" });
   try {
-    await waitForScan(page, 26);
+    await waitForScan(page, 27);
   } catch (error) {
     const debug = await page.evaluate(() => ({
       title: document.title,
@@ -348,7 +368,7 @@ try {
   await page.evaluate((html) => {
     document.getElementById("grid-sections")?.insertAdjacentHTML("beforeend", html);
   }, scrollHtml);
-  await waitForScan(page, 30);
+  await waitForScan(page, 31);
   await page.waitForTimeout(400);
   states = await cardStates(page);
   check("appended legit cards stay visible", states["9101"]?.action === "allow" && states["9102"]?.action === "allow");
@@ -432,6 +452,30 @@ try {
   states = await cardStates(page);
   check("turning deep scan back on re-hides it from cache", states["2147792605766266"]?.action === "hide");
   await deepPopup.close();
+
+  // Server-rendered dealer listing (no embedded JSON) must still be caught
+  // from the feed via the DOM-parser fallback.
+  await page.waitForFunction(
+    () => document.querySelector('[data-slopblock-item-id="4400"]')?.getAttribute("data-slopblock-processed") === "hide",
+    undefined,
+    { timeout: 25000 }
+  );
+  states = await cardStates(page);
+  check(
+    "deep scan catches a server-rendered dealer listing via the DOM fallback",
+    states["4400"]?.action === "hide" && states["4400"]?.displayNone,
+    JSON.stringify(states["4400"])
+  );
+
+  const deepHealth = await context.newPage();
+  await deepHealth.goto(`chrome-extension://${extension.id}/popup.html`);
+  await deepHealth.waitForSelector("#pageSummary");
+  await page.bringToFront();
+  await deepHealth.click("#refreshSummary");
+  await deepHealth.waitForTimeout(700);
+  const healthText = await deepHealth.textContent("#pageSummary");
+  check("popup surfaces deep-scan health (read N of M listings)", /Deep scan: read \d+ of \d+/.test(healthText ?? ""), (healthText ?? "").slice(0, 160));
+  await deepHealth.close();
 
   console.log("\n== vendor hide-all (IKEA) ==");
   const ikeaPopup = await context.newPage();

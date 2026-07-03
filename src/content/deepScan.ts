@@ -1,4 +1,5 @@
 import type { ListingSnapshot } from "../common/types";
+import { extractDetailSnapshot, findDetailContainer } from "./detail";
 
 /**
  * Deep scan: feed cards only show price/title/location, so listings whose
@@ -31,16 +32,34 @@ type CacheEntry = {
   fetchedAt: number;
 };
 
+export type DeepScanFailure = { itemId: string; kind: string };
+
+export type DeepScanStats = {
+  fetched: number;
+  parsedFromJson: number;
+  parsedFromDom: number;
+  noData: number;
+  errors: number;
+  pending: number;
+  backoffMsRemaining: number;
+  lastFailures: DeepScanFailure[];
+};
+
 export type DeepScanner = {
-  /** Queue a listing for background scanning (deduped; respects caps). */
-  request(itemId: string): void;
+  /**
+   * Queue a listing for background scanning (deduped; respects caps).
+   * priority items (currently on-screen) jump ahead of look-ahead ones so
+   * the card the user is about to click resolves first.
+   */
+  request(itemId: string, priority?: boolean): void;
   /** Full listing snapshot if a deep scan (or detail visit) captured one. */
   getSnapshot(itemId: string): ListingSnapshot | undefined;
   /** Record a snapshot observed directly (e.g. from a detail-page visit). */
   setSnapshot(itemId: string, snapshot: ListingSnapshot): void;
   /** True if this listing has been scanned (even if no data was found). */
   has(itemId: string): boolean;
-  stats(): { fetched: number; pending: number };
+  /** Local counters for the debug report — which fetches parsed, and how failures split. */
+  stats(): DeepScanStats;
 };
 
 export function createDeepScanner(onVerdict: (itemId: string) => void): DeepScanner {
@@ -48,9 +67,21 @@ export function createDeepScanner(onVerdict: (itemId: string) => void): DeepScan
   const queue: string[] = [];
   const queued = new Set<string>();
   let fetchCount = 0;
+  let parsedFromJson = 0;
+  let parsedFromDom = 0;
+  let noDataCount = 0;
+  let errorCount = 0;
   let timer: number | undefined;
   let consecutiveErrors = 0;
   let backoffUntil = 0;
+  const lastFailures: DeepScanFailure[] = [];
+
+  function recordFailure(itemId: string, kind: string): void {
+    lastFailures.push({ itemId, kind });
+    if (lastFailures.length > 10) {
+      lastFailures.shift();
+    }
+  }
 
   function schedule(): void {
     if (timer !== undefined || queue.length === 0) {
@@ -89,28 +120,55 @@ export function createDeepScanner(onVerdict: (itemId: string) => void): DeepScan
         });
 
         if (response.ok) {
-          consecutiveErrors = 0;
           const html = await response.text();
-          const snapshot = extractListingFromHtml(html, itemId);
-          cache.set(itemId, { snapshot, fetchedAt: Date.now() });
-          if (snapshot) {
-            onVerdict(itemId);
+
+          if (looksLikeLoginWall(html, response.url)) {
+            // Session hiccup or bot check: retryable, don't cache as no-data.
+            registerError(itemId, "login-wall");
+          } else {
+            consecutiveErrors = 0;
+            let snapshot = extractListingFromHtml(html, itemId);
+            if (snapshot) {
+              parsedFromJson += 1;
+            } else {
+              // Some listing types (notably vehicles/dealer pages) ship
+              // server-rendered DOM instead of the embedded JSON payload.
+              // Fall back to the same extractor the detail-page scan uses.
+              snapshot = extractListingViaDom(html, itemId, (raw) =>
+                new DOMParser().parseFromString(raw, "text/html")
+              );
+              if (snapshot) {
+                parsedFromDom += 1;
+              }
+            }
+
+            if (!snapshot) {
+              noDataCount += 1;
+              recordFailure(itemId, "no-listing-data");
+            }
+            cache.set(itemId, { snapshot, fetchedAt: Date.now() });
+            if (snapshot) {
+              onVerdict(itemId);
+            }
           }
         } else {
-          registerError(itemId);
+          registerError(itemId, `http-${response.status}`);
         }
       } catch {
-        registerError(itemId);
+        registerError(itemId, "network");
       }
     }
 
     schedule();
   }
 
-  function registerError(itemId: string): void {
+  function registerError(itemId: string, kind: string): void {
     consecutiveErrors += 1;
-    cache.set(itemId, { snapshot: null, fetchedAt: Date.now() });
-    if (consecutiveErrors >= 2) {
+    errorCount += 1;
+    recordFailure(itemId, kind);
+    // Short error TTL so transient throttling retries soon.
+    cache.set(itemId, { snapshot: null, fetchedAt: Date.now() - NO_DATA_TTL_MS + 60_000 });
+    if (consecutiveErrors >= 3) {
       backoffUntil = Date.now() + ERROR_BACKOFF_MS;
     }
   }
@@ -125,13 +183,29 @@ export function createDeepScanner(onVerdict: (itemId: string) => void): DeepScan
   }
 
   return {
-    request(itemId: string): void {
-      if (!itemId || queued.has(itemId) || isFresh(cache.get(itemId)) || fetchCount >= MAX_FETCHES_PER_PAGE) {
+    request(itemId: string, priority = false): void {
+      if (!itemId || isFresh(cache.get(itemId)) || fetchCount >= MAX_FETCHES_PER_PAGE) {
+        return;
+      }
+
+      if (queued.has(itemId)) {
+        // Already waiting — promote it to the front if it just entered view.
+        if (priority) {
+          const at = queue.indexOf(itemId);
+          if (at > 0) {
+            queue.splice(at, 1);
+            queue.unshift(itemId);
+          }
+        }
         return;
       }
 
       queued.add(itemId);
-      queue.push(itemId);
+      if (priority) {
+        queue.unshift(itemId);
+      } else {
+        queue.push(itemId);
+      }
       schedule();
     },
 
@@ -148,8 +222,17 @@ export function createDeepScanner(onVerdict: (itemId: string) => void): DeepScan
       return isFresh(cache.get(itemId));
     },
 
-    stats(): { fetched: number; pending: number } {
-      return { fetched: fetchCount, pending: queue.length };
+    stats(): DeepScanStats {
+      return {
+        fetched: fetchCount,
+        parsedFromJson,
+        parsedFromDom,
+        noData: noDataCount,
+        errors: errorCount,
+        pending: queue.length,
+        backoffMsRemaining: Math.max(0, backoffUntil - Date.now()),
+        lastFailures: [...lastFailures]
+      };
     }
   };
 }
@@ -201,5 +284,42 @@ function extractJsonString(html: string, pattern: RegExp): string | undefined {
     return typeof decoded === "string" && decoded.trim() ? decoded.trim() : undefined;
   } catch {
     return undefined;
+  }
+}
+
+/** Facebook's logged-out/checkpoint shells instead of the listing page. */
+export function looksLikeLoginWall(html: string, responseUrl: string): boolean {
+  if (/\/(?:login|checkpoint)\b/.test(responseUrl)) {
+    return true;
+  }
+
+  return /id="loginform"|name="login"|data-testid="royal_login_form"/i.test(html) && !/marketplace_listing_title/.test(html);
+}
+
+/**
+ * DOM fallback for server-rendered listing pages that lack the embedded
+ * JSON payload: parse the fetched HTML and reuse the exact extractor the
+ * detail-page scan uses on the live page.
+ */
+export function extractListingViaDom(
+  html: string,
+  itemId: string,
+  parse: (html: string) => Document
+): ListingSnapshot | null {
+  try {
+    const doc = parse(html);
+    const container = findDetailContainer(doc);
+    if (!container) {
+      return null;
+    }
+
+    const snapshot = extractDetailSnapshot(container, `https://www.facebook.com/marketplace/item/${itemId}/`);
+    if (!snapshot.title || snapshot.visibleText.length < 12) {
+      return null;
+    }
+
+    return snapshot;
+  } catch {
+    return null;
   }
 }

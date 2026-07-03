@@ -292,7 +292,7 @@ async function refreshPageSummary(showErrors: boolean): Promise<void> {
       return;
     }
 
-    renderPageSummary(parsed.stats, parsed.decisions, parsed.showHidden);
+    renderPageSummary(parsed.stats, parsed.decisions, parsed.showHidden, parsed.deepScan);
     if (showErrors) {
       setStatus("Current-page summary refreshed.");
     }
@@ -310,7 +310,12 @@ function scheduleSummaryRefresh(delay = 250): void {
   }, delay);
 }
 
-function renderPageSummary(stats: ContentStats | undefined, decisions: ContentDecision[], showHidden: boolean): void {
+function renderPageSummary(
+  stats: ContentStats | undefined,
+  decisions: ContentDecision[],
+  showHidden: boolean,
+  deepScan?: import("../common/decisionExport").DeepScanDebug
+): void {
   const summary = summarizeContentDecisions(decisions, stats);
   const statGrid = document.createElement("div");
   statGrid.className = "stat-grid";
@@ -329,9 +334,34 @@ function renderPageSummary(stats: ContentStats | undefined, decisions: ContentDe
     blocks.push(note);
   }
 
+  const deepNote = renderDeepScanNote(deepScan);
+  if (deepNote) {
+    blocks.push(deepNote);
+  }
   blocks.push(renderTopRules(summary.topRules));
   blocks.push(renderHiddenExamples(summary.hiddenExamples));
   pageSummaryNode.replaceChildren(...blocks);
+}
+
+function renderDeepScanNote(
+  deepScan?: import("../common/decisionExport").DeepScanDebug
+): HTMLElement | null {
+  if (!deepScan || deepScan.fetched === 0) {
+    return null;
+  }
+
+  const note = document.createElement("p");
+  note.className = "panel-note";
+  const parts: string[] = [`Deep scan: read ${deepScan.parsedFromJson + deepScan.parsedFromDom} of ${deepScan.fetched} listings`];
+  if (deepScan.pending > 0) {
+    parts.push(`${deepScan.pending} still scanning`);
+  }
+  if (deepScan.errors > 0) {
+    const loginBlocked = deepScan.lastFailures.some((failure) => failure.kind === "login-wall");
+    parts.push(loginBlocked ? "some blocked (are you logged into Facebook?)" : `${deepScan.errors} fetch errors`);
+  }
+  note.textContent = parts.join(" · ");
+  return note;
 }
 
 function renderSummaryUnavailable(message: string): void {

@@ -66,3 +66,47 @@ test("unicode escapes in embedded JSON are decoded", () => {
   assert.equal(snapshot?.title, "Café table");
   assert.match(snapshot?.visibleText ?? "", /—/);
 });
+
+import { JSDOM } from "jsdom";
+import { extractListingViaDom, looksLikeLoginWall } from "../src/content/deepScan";
+
+test("DOM fallback extracts listings from server-rendered pages without embedded JSON", () => {
+  const ssrHtml = `<!doctype html><html><body>
+    <div role="banner"><h1 style="position:absolute;left:-9999px">Facebook</h1></div>
+    <div role="main">
+      <div class="right"><div class="info">
+        <h1>2014 RAM 1500 crew cab</h1>
+        <div><span aria-label="$13,995">$13,995</span></div>
+        <div><span>Listed 2 days ago in San Jose, CA</span></div>
+        <div><span>Condition</span> <span>Used</span></div>
+        <div class="description"><span>Clean unit! Price plus tax, title, license and doc fee. Financing available, everyone approved, visit our showroom today.</span></div>
+      </div></div>
+    </div>
+  </body></html>`;
+
+  const snapshot = extractListingViaDom(ssrHtml, "777", (html) => new JSDOM(html).window.document);
+  assert.ok(snapshot);
+  assert.equal(snapshot?.title, "2014 RAM 1500 crew cab");
+  assert.equal(snapshot?.idHint, "777");
+  assert.match(snapshot?.visibleText ?? "", /doc fee/i);
+
+  const result = scoreListing(snapshot!, DEFAULT_SETTINGS, {});
+  assert.equal(result.action, "hide");
+  assert.ok(result.matches.some((match) => match.ruleId === "store-auto-dealer-fees"));
+  assert.ok(result.matches.some((match) => match.ruleId === "store-auto-dealer-financing"));
+});
+
+test("DOM fallback returns null on shells with no listing content", () => {
+  const shell = `<!doctype html><html><body><div id="splash">Loading…</div></body></html>`;
+  assert.equal(extractListingViaDom(shell, "1", (html) => new JSDOM(html).window.document), null);
+});
+
+test("login walls are recognized as retryable failures, not listing data", () => {
+  assert.equal(looksLikeLoginWall("<form id=\"loginform\">…</form>", "https://www.facebook.com/marketplace/item/1/"), true);
+  assert.equal(looksLikeLoginWall("<html>…</html>", "https://www.facebook.com/login/?next=x"), true);
+  assert.equal(
+    looksLikeLoginWall('{"marketplace_listing_title":"Chair"} <form name="login">', "https://www.facebook.com/marketplace/item/1/"),
+    false,
+    "a page WITH listing data is not a login wall even if a login form exists in the footer"
+  );
+});

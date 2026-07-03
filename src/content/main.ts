@@ -75,7 +75,8 @@ function queueDeepScans(): void {
     return;
   }
 
-  const lookahead = window.innerHeight * 2;
+  const viewportHeight = window.innerHeight;
+  const lookahead = viewportHeight * 2;
   for (const card of Array.from(document.querySelectorAll<HTMLElement>(`[${PROCESSED_ATTR}]`))) {
     const itemId = card.dataset.slopblockItemId;
     if (!itemId || deepScanner.has(itemId)) {
@@ -87,11 +88,14 @@ function queueDeepScans(): void {
     }
 
     const rect = card.getBoundingClientRect();
-    if (rect.bottom < -lookahead || rect.top > window.innerHeight + lookahead) {
+    if (rect.bottom < -lookahead || rect.top > viewportHeight + lookahead) {
       continue;
     }
 
-    deepScanner.request(itemId);
+    // Cards actually on screen are what the user might click next: fetch
+    // those before the look-ahead ring so their verdicts land first.
+    const onScreen = rect.bottom > 0 && rect.top < viewportHeight;
+    deepScanner.request(itemId, onScreen);
   }
 }
 
@@ -131,7 +135,7 @@ function installRuntimeListeners(): void {
     }
 
     if (message.type === "SLOPBLOCK_EXPORT_DECISIONS") {
-      sendResponse({ ok: true, stats, showHidden, decisions: lastDecisions });
+      sendResponse({ ok: true, stats, showHidden, decisions: lastDecisions, deepScan: deepScanner.stats() });
       return false;
     }
 
@@ -831,10 +835,40 @@ function updateToolbar(): void {
 
   toolbar.dataset.active = filtered > 0 ? "true" : "false";
 
+  // Show a quiet "scanning" hint while deep-scan fetches are still in flight,
+  // so a not-yet-judged card reads as pending, not missed.
+  const deepStats = settings?.deepScan ? deepScanner.stats() : null;
+  const pending = deepStats?.pending ?? 0;
+  toolbar.dataset.scanning = pending > 0 ? "true" : "false";
+  const pillText = toolbar.querySelector<HTMLElement>(".slopblock-pill-text");
+  if (pillText) {
+    pillText.textContent = pending > 0 ? `${filtered} filtered · scanning ${pending}` : `${filtered} filtered`;
+  }
+
   const toggleButton = toolbar.querySelector<HTMLButtonElement>('[data-slopblock-action="toggle-hidden"]');
   if (toggleButton) {
     toggleButton.textContent = showHidden ? "Hide again" : "Show hidden";
   }
+
+  // Keep re-scanning while fetches are in flight so their verdicts land even
+  // if the user stops scrolling and the page stops mutating. During a backoff
+  // window the queue is idle, so let the fetch loop resume on its own.
+  if (pending > 0 && (deepStats?.backoffMsRemaining ?? 0) === 0) {
+    scheduleDeepScanPoll();
+  }
+}
+
+let deepScanPollTimer: number | undefined;
+
+function scheduleDeepScanPoll(): void {
+  if (deepScanPollTimer !== undefined) {
+    return;
+  }
+
+  deepScanPollTimer = window.setTimeout(() => {
+    deepScanPollTimer = undefined;
+    scheduleScan(0);
+  }, 1500);
 }
 
 function isSlopBlockMutation(mutation: MutationRecord): boolean {

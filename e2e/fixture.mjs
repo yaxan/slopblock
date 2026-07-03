@@ -175,7 +175,7 @@ export function renderGridSection(cards, { heading, sponsoredHeading = false } =
  * "See more" toggle that inserts the remaining text on click), a related
  * items grid, and a right-rail Sponsored box.
  */
-export function renderItemDetailPage(listing, { related = [], truncated = false } = {}) {
+export function renderItemDetailPage(listing, { related = [], truncated = false, embedJson = true } = {}) {
   const linkHtml = (url, index) =>
     `<a href="https://l.facebook.com/l.php?u=${encodeURIComponent(url)}&h=AT${index}abc" target="_blank" rel="nofollow">${escapeHtml(
       url.replace(/^https:\/\//, "").slice(0, 34)
@@ -211,10 +211,14 @@ export function renderItemDetailPage(listing, { related = [], truncated = false 
     } } } } } } }]]]
   });
 
+  const jsonTag = embedJson
+    ? `<script type="application/json" data-sjs>${embeddedJson.replaceAll("</", "<\\/")}</script>`
+    : "";
+
   return `<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>${escapeHtml(listing.title)} - Marketplace</title>
-<script type="application/json" data-sjs>${embeddedJson.replaceAll("</", "<\\/")}</script>
+${jsonTag}
 <style>
   body { margin: 0; font-family: Helvetica, Arial, sans-serif; background: #f0f2f5; }
   [role="main"] { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; padding: 16px; }
