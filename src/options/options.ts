@@ -1,6 +1,6 @@
 import { RULE_CATEGORIES } from "../common/categories";
 import { DEFAULT_RULES, DYNAMIC_RULE_CONTROLS } from "../common/defaultRules";
-import { QUICK_RULE_TOGGLES, quickRuleToggleState, setQuickRuleToggleEnabled } from "../common/ruleToggles";
+import { QUICK_RULE_TOGGLES, quickToggleMode, setQuickToggleMode } from "../common/ruleToggles";
 import { scoreListing } from "../common/scoring";
 import { DEFAULT_SETTINGS, normalizeSettings, parseTerms, serializeTerms } from "../common/settings";
 import { loadSettings, resetSettings, saveSettings } from "../common/storage";
@@ -125,10 +125,36 @@ function bindEvents(): void {
       return;
     }
 
-    settings = setQuickRuleToggleEnabled(settings, toggle, target.checked);
+    settings = setQuickToggleMode(settings, toggle, target.checked ? "filter" : "off");
     renderQuickRuleToggles();
     renderRules();
-    void persist(target.checked ? `${toggle.label}: on` : `${toggle.label}: off`);
+    void persist(target.checked ? `${toggle.label}: filtering` : `${toggle.label}: off`);
+  });
+
+  quickRuleTogglesNode.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const modeButton = target.closest<HTMLButtonElement>("button[data-mode]");
+    const container = modeButton?.closest<HTMLElement>("[data-quick-toggle-id]");
+    if (!modeButton || !container) {
+      return;
+    }
+
+    const toggle = QUICK_RULE_TOGGLES.find((candidate) => candidate.id === container.dataset.quickToggleId);
+    if (!toggle) {
+      return;
+    }
+
+    const mode = modeButton.dataset.mode as "off" | "filter" | "block";
+    settings = setQuickToggleMode(settings, toggle, mode);
+    renderQuickRuleToggles();
+    renderRules();
+    void persist(
+      mode === "block" ? `${toggle.label}: hiding all` : mode === "filter" ? `${toggle.label}: filtering` : `${toggle.label}: off`
+    );
   });
 
   for (const textarea of [customBlockTerms, customVendorTerms, customAllowTerms, customAllowItemIds]) {
@@ -208,10 +234,13 @@ function renderCategories(): void {
 function renderQuickRuleToggles(): void {
   quickRuleTogglesNode.replaceChildren(
     ...QUICK_RULE_TOGGLES.map((toggle) => {
-      const state = quickRuleToggleState(settings, toggle);
-      const label = document.createElement("label");
-      label.className = "quick-toggle";
-      label.title = `Rules: ${toggle.ruleIds.join(", ")}`;
+      const mode = quickToggleMode(settings, toggle);
+      const row = document.createElement(toggle.kind === "vendor" ? "div" : "label");
+      row.className = `quick-toggle${toggle.kind === "vendor" ? " quick-toggle-vendor" : ""}`;
+      row.title = `Rules: ${toggle.ruleIds.join(", ")}`;
+      if (toggle.kind === "vendor") {
+        (row as HTMLElement).dataset.quickToggleId = toggle.id;
+      }
 
       const body = document.createElement("div");
       const title = document.createElement("strong");
@@ -220,11 +249,33 @@ function renderQuickRuleToggles(): void {
       description.textContent = toggle.description;
       body.append(title, description);
 
-      label.append(
-        body,
-        renderSwitch(state === "on", { quickRuleToggleId: toggle.id, indeterminate: state === "partial" })
-      );
-      return label;
+      if (toggle.kind === "vendor") {
+        const seg = document.createElement("div");
+        seg.className = "tri-seg";
+        seg.setAttribute("role", "group");
+        seg.setAttribute("aria-label", `${toggle.label} mode`);
+        for (const [value, segLabel] of [
+          ["off", "Off"],
+          ["filter", "Filter"],
+          ["block", "Hide all"]
+        ] as const) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.dataset.mode = value;
+          button.textContent = segLabel;
+          const active = mode === value || (value === "filter" && mode === "partial");
+          button.setAttribute("aria-pressed", String(active));
+          if (active) {
+            button.classList.add("is-active");
+          }
+          seg.append(button);
+        }
+        row.append(body, seg);
+        return row;
+      }
+
+      row.append(body, renderSwitch(mode === "filter", { quickRuleToggleId: toggle.id, indeterminate: mode === "partial" }));
+      return row;
     })
   );
 }

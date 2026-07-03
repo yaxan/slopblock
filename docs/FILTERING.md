@@ -85,7 +85,7 @@ Every layer of the tuning story, from fastest to deepest:
 
 1. **On-card badge** (dimmed/labeled/previewed cards): "Allow item" and "Disable top rule" buttons.
 2. **Popup → This page**: live stats, top triggers with one-click Disable, hidden examples with one-click Allow.
-3. **Popup → Quick filters**: one-switch control of the opinionated areas (Amazon/Temu sources, IKEA, liquidation/outlets, sponsored cards, catalog copy, floods, not-for-sale posts, job/loan scams, weak commercial text).
+3. **Popup → Quick filters**: the opinionated areas in one place. Vendor-flavored filters (Amazon/Temu sources, IKEA, liquidation) are three-way — **Off** (ignore entirely), **Filter** (default: a slop *signal*, so used IKEA resales stay visible while dropshippers flipping new IKEA stock get caught), **Hide all** (remove every listing that mentions the vendor — an explicit personal block, weight 96, still rescuable by allowlists). The rest are on/off: sponsored ads, catalog copy, repeated listings, not-for-sale posts, job/money pitches, vague commercial text.
 4. **Popup → Filtering**: strength (relaxed/balanced/strict) and action (hide/dim/label).
 5. **Options → Rule groups**: whole categories on/off.
 6. **Options → All built-in rules**: every rule with its exact regex, weight, and confidence — individually toggleable, searchable.

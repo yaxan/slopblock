@@ -1,110 +1,130 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_SETTINGS } from "../src/common/settings";
 import {
   QUICK_RULE_TOGGLES,
   controlRuleIdForMatch,
-  quickRuleToggleState,
-  setQuickRuleToggleEnabled
+  quickToggleMode,
+  setQuickToggleMode
 } from "../src/common/ruleToggles";
+import { DEFAULT_RULES } from "../src/common/defaultRules";
+import { scoreListing } from "../src/common/scoring";
+import { DEFAULT_SETTINGS, normalizeSettings } from "../src/common/settings";
 
-test("quick rule toggles disable and re-enable all mapped rule IDs", () => {
-  const toggle = requiredToggle("weak-commercial");
-  const disabled = setQuickRuleToggleEnabled(DEFAULT_SETTINGS, toggle, false);
+const KNOWN_RULE_IDS = new Set(DEFAULT_RULES.map((rule) => rule.id));
+const DYNAMIC_IDS = new Set([
+  "bait-price-dynamic",
+  "keyword-stuffing-detected",
+  "counterfeit-luxury-underpriced",
+  "counterfeit-authenticity-dodge",
+  "duplicate-flood-dynamic",
+  "store-sponsored-card",
+  "missing-human-context",
+  "vendor-retail-combo"
+]);
 
-  assert.equal(quickRuleToggleState(disabled, toggle), "off");
-  assert.ok(disabled.disabledRuleIds.includes("store-sales-language"));
-  assert.ok(disabled.disabledRuleIds.includes("missing-human-context"));
-
-  const enabled = setQuickRuleToggleEnabled(disabled, toggle, true);
-  assert.equal(quickRuleToggleState(enabled, toggle), "on");
-  assert.ok(!enabled.disabledRuleIds.includes("store-sales-language"));
-  assert.ok(!enabled.disabledRuleIds.includes("missing-human-context"));
+test("every quick toggle references real rule ids", () => {
+  for (const toggle of QUICK_RULE_TOGGLES) {
+    for (const ruleId of toggle.ruleIds) {
+      assert.ok(KNOWN_RULE_IDS.has(ruleId) || DYNAMIC_IDS.has(ruleId), `${toggle.id} -> ${ruleId}`);
+    }
+  }
 });
 
-test("dropship source quick toggle controls core source rules without disabling IKEA", () => {
-  const toggle = requiredToggle("dropship-sources");
-  const disabled = setQuickRuleToggleEnabled(DEFAULT_SETTINGS, toggle, false);
+test("tri-state modes round-trip: off, filter, block", () => {
+  const ikea = QUICK_RULE_TOGGLES.find((toggle) => toggle.id === "ikea");
+  assert.ok(ikea);
+  assert.equal(ikea?.kind, "vendor");
 
-  assert.equal(quickRuleToggleState(disabled, toggle), "off");
-  assert.ok(disabled.disabledRuleIds.includes("vendor-amazon"));
-  assert.ok(disabled.disabledRuleIds.includes("vendor-temu"));
-  assert.ok(disabled.disabledRuleIds.includes("vendor-aliexpress"));
-  assert.ok(disabled.disabledRuleIds.includes("vendor-shein"));
-  assert.ok(!disabled.disabledRuleIds.includes("vendor-ikea"));
+  assert.equal(quickToggleMode(DEFAULT_SETTINGS, ikea!), "filter");
 
-  const enabled = setQuickRuleToggleEnabled(disabled, toggle, true);
-  assert.equal(quickRuleToggleState(enabled, toggle), "on");
-  assert.ok(!enabled.disabledRuleIds.includes("vendor-amazon"));
-  assert.ok(!enabled.disabledRuleIds.includes("vendor-temu"));
-  assert.ok(!enabled.disabledRuleIds.includes("vendor-ikea"));
+  const off = setQuickToggleMode(DEFAULT_SETTINGS, ikea!, "off");
+  assert.equal(quickToggleMode(off, ikea!), "off");
+  assert.ok(off.disabledRuleIds.includes("vendor-ikea"));
+
+  const block = setQuickToggleMode(off, ikea!, "block");
+  assert.equal(quickToggleMode(block, ikea!), "block");
+  assert.ok(!block.disabledRuleIds.includes("vendor-ikea"), "block re-enables the member rules");
+  assert.ok(block.quickToggleBlockAll.includes("ikea"));
+
+  const filter = setQuickToggleMode(block, ikea!, "filter");
+  assert.equal(quickToggleMode(filter, ikea!), "filter");
+  assert.deepEqual(filter.quickToggleBlockAll, []);
 });
 
-test("not-for-sale quick toggle controls wanted trade and unavailable rules", () => {
-  const toggle = requiredToggle("not-for-sale");
-  const disabled = setQuickRuleToggleEnabled(DEFAULT_SETTINGS, toggle, false);
+test("hide-all mode hides every listing matching the vendor pattern", () => {
+  const ikea = QUICK_RULE_TOGGLES.find((toggle) => toggle.id === "ikea")!;
+  const blockSettings = setQuickToggleMode(DEFAULT_SETTINGS, ikea, "block");
 
-  assert.equal(quickRuleToggleState(disabled, toggle), "off");
-  assert.ok(disabled.disabledRuleIds.includes("not-for-sale-title-request"));
-  assert.ok(disabled.disabledRuleIds.includes("not-for-sale-request-language"));
-  assert.ok(disabled.disabledRuleIds.includes("not-for-sale-trade-only"));
-  assert.ok(disabled.disabledRuleIds.includes("not-for-sale-unavailable"));
-});
-
-test("sponsored and catalog quick toggles control noisy ad and stock-copy rules", () => {
-  const sponsoredToggle = requiredToggle("sponsored-cards");
-  const catalogToggle = requiredToggle("catalog-copy");
-  const disabledSponsored = setQuickRuleToggleEnabled(DEFAULT_SETTINGS, sponsoredToggle, false);
-  const disabledCatalog = setQuickRuleToggleEnabled(DEFAULT_SETTINGS, catalogToggle, false);
-
-  assert.equal(quickRuleToggleState(disabledSponsored, sponsoredToggle), "off");
-  assert.ok(disabledSponsored.disabledRuleIds.includes("store-sponsored-card"));
-  assert.ok(!disabledSponsored.disabledRuleIds.includes("store-sales-language"));
-
-  assert.equal(quickRuleToggleState(disabledCatalog, catalogToggle), "off");
-  assert.ok(disabledCatalog.disabledRuleIds.includes("catalog-reference-photo"));
-  assert.ok(disabledCatalog.disabledRuleIds.includes("catalog-generic-copy"));
-  assert.ok(disabledCatalog.disabledRuleIds.includes("catalog-spec-heavy"));
-  assert.ok(!disabledCatalog.disabledRuleIds.includes("dropship-variants"));
-});
-
-test("opportunity scam quick toggle controls job task and financial scheme rules", () => {
-  const toggle = requiredToggle("opportunity-scams");
-  const disabled = setQuickRuleToggleEnabled(DEFAULT_SETTINGS, toggle, false);
-
-  assert.equal(quickRuleToggleState(disabled, toggle), "off");
-  assert.ok(disabled.disabledRuleIds.includes("service-job-opportunity"));
-  assert.ok(disabled.disabledRuleIds.includes("service-task-mlm"));
-  assert.ok(disabled.disabledRuleIds.includes("scam-financial-opportunity"));
-  assert.ok(!disabled.disabledRuleIds.includes("scam-deposit"));
-  assert.ok(!disabled.disabledRuleIds.includes("service-moving-hauling"));
-
-  const enabled = setQuickRuleToggleEnabled(disabled, toggle, true);
-  assert.equal(quickRuleToggleState(enabled, toggle), "on");
-  assert.ok(!enabled.disabledRuleIds.includes("service-job-opportunity"));
-  assert.ok(!enabled.disabledRuleIds.includes("service-task-mlm"));
-  assert.ok(!enabled.disabledRuleIds.includes("scam-financial-opportunity"));
-});
-
-test("quick rule toggles report partial state for partially disabled composite toggles", () => {
-  const toggle = requiredToggle("weak-commercial");
-  const settings = {
-    ...DEFAULT_SETTINGS,
-    disabledRuleIds: ["missing-human-context"]
+  const listing = {
+    idHint: "1",
+    title: "IKEA MALM 6 drawer dresser",
+    priceText: "$80",
+    locationText: "Toronto, ON",
+    visibleText: "$80\nIKEA MALM 6 drawer dresser\nToronto, ON"
   };
 
-  assert.equal(quickRuleToggleState(settings, toggle), "partial");
+  const defaultResult = scoreListing(listing, DEFAULT_SETTINGS, {});
+  assert.equal(defaultResult.action, "allow", "used IKEA is legit by default");
+
+  const blockedResult = scoreListing(listing, blockSettings, {});
+  assert.equal(blockedResult.action, "hide");
+  assert.ok(blockedResult.matches.some((match) => match.ruleId === "block-all-ikea"));
+
+  const nonIkea = scoreListing(
+    { idHint: "2", title: "Solid oak dresser", priceText: "$90", locationText: "Toronto, ON", visibleText: "Solid oak dresser" },
+    blockSettings,
+    {}
+  );
+  assert.equal(nonIkea.action, "allow", "hide-all only affects matching listings");
 });
 
-test("controlRuleIdForMatch maps dynamic match IDs to user-toggleable rule IDs", () => {
+test("hide-all respects the user allowlist", () => {
+  const ikea = QUICK_RULE_TOGGLES.find((toggle) => toggle.id === "ikea")!;
+  const settings = normalizeSettings({
+    ...setQuickToggleMode(DEFAULT_SETTINGS, ikea, "block"),
+    customAllowItemIds: ["999"]
+  });
+
+  const result = scoreListing(
+    { idHint: "999", title: "IKEA Kallax shelf", priceText: "$40", locationText: "Toronto, ON", visibleText: "IKEA Kallax shelf" },
+    settings,
+    {}
+  );
+  assert.equal(result.action, "allow");
+});
+
+test("amazon product names are exempt even from hide-all (they are products, not sources)", () => {
+  const sources = QUICK_RULE_TOGGLES.find((toggle) => toggle.id === "dropship-sources")!;
+  const settings = setQuickToggleMode(DEFAULT_SETTINGS, sources, "block");
+
+  const echo = scoreListing(
+    { idHint: "3", title: "Amazon Echo Dot 4th gen", priceText: "$25", locationText: "Toronto, ON", visibleText: "Amazon Echo Dot 4th gen" },
+    settings,
+    {}
+  );
+  assert.equal(echo.action, "allow");
+
+  const sourced = scoreListing(
+    { idHint: "4", title: "Sectional couch - Amazon return", priceText: "$200", locationText: "Toronto, ON", visibleText: "Sectional couch - Amazon return" },
+    settings,
+    {}
+  );
+  assert.equal(sourced.action, "hide");
+});
+
+test("block-all verdicts have no rule-level control (managed via the quick filter)", () => {
+  assert.equal(controlRuleIdForMatch("block-all-ikea"), undefined);
+  assert.equal(controlRuleIdForMatch("duplicate-flood-repeat"), "duplicate-flood-dynamic");
   assert.equal(controlRuleIdForMatch("bait-price-gamed"), "bait-price-dynamic");
-  assert.equal(controlRuleIdForMatch("duplicate-flood-heavy"), "duplicate-flood-dynamic");
-  assert.equal(controlRuleIdForMatch("vendor-ikea"), "vendor-ikea");
-  assert.equal(controlRuleIdForMatch(undefined), undefined);
+  assert.equal(controlRuleIdForMatch("vendor-temu"), "vendor-temu");
 });
 
-function requiredToggle(id: string) {
-  const toggle = QUICK_RULE_TOGGLES.find((candidate) => candidate.id === id);
-  assert.ok(toggle, `Missing toggle ${id}`);
-  return toggle;
-}
+test("unknown ids in quickToggleBlockAll are ignored safely", () => {
+  const settings = normalizeSettings({ ...DEFAULT_SETTINGS, quickToggleBlockAll: ["nonexistent-toggle"] });
+  const result = scoreListing(
+    { idHint: "5", title: "IKEA Billy bookcase", priceText: "$25", locationText: "Toronto, ON", visibleText: "IKEA Billy bookcase" },
+    settings,
+    {}
+  );
+  assert.equal(result.action, "allow");
+});

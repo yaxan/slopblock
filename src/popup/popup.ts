@@ -1,6 +1,6 @@
 import { parseDecisionExportResponse } from "../common/decisionExport";
 import { summarizeContentDecisions } from "../common/decisionSummary";
-import { QUICK_RULE_TOGGLES, quickRuleToggleState, setQuickRuleToggleEnabled } from "../common/ruleToggles";
+import { QUICK_RULE_TOGGLES, quickToggleMode, setQuickToggleMode } from "../common/ruleToggles";
 import { normalizeSettings } from "../common/settings";
 import { loadSettings, saveSettings } from "../common/storage";
 import type {
@@ -73,7 +73,27 @@ function bindEvents(): void {
       return;
     }
 
-    void updateAndSave(setQuickRuleToggleEnabled(settings, toggle, target.checked));
+    void updateAndSave(setQuickToggleMode(settings, toggle, target.checked ? "filter" : "off"));
+  });
+
+  quickRuleTogglesNode.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const modeButton = target.closest<HTMLButtonElement>("button[data-mode]");
+    const container = modeButton?.closest<HTMLElement>("[data-quick-toggle-id]");
+    if (!modeButton || !container) {
+      return;
+    }
+
+    const toggle = QUICK_RULE_TOGGLES.find((candidate) => candidate.id === container.dataset.quickToggleId);
+    if (!toggle) {
+      return;
+    }
+
+    void updateAndSave(setQuickToggleMode(settings, toggle, modeButton.dataset.mode as "off" | "filter" | "block"));
   });
   pageSummaryNode.addEventListener("click", (event) => {
     const target = event.target;
@@ -156,10 +176,13 @@ async function allowTermFromPopup(term: string): Promise<void> {
 function renderQuickRuleToggles(): void {
   quickRuleTogglesNode.replaceChildren(
     ...QUICK_RULE_TOGGLES.map((toggle) => {
-      const state = quickRuleToggleState(settings, toggle);
-      const label = document.createElement("label");
-      label.className = "quick-toggle";
-      label.title = `Rules: ${toggle.ruleIds.join(", ")}`;
+      const mode = quickToggleMode(settings, toggle);
+      const row = document.createElement(toggle.kind === "vendor" ? "div" : "label");
+      row.className = `quick-toggle${toggle.kind === "vendor" ? " quick-toggle-vendor" : ""}`;
+      row.title = `Rules: ${toggle.ruleIds.join(", ")}`;
+      if (toggle.kind === "vendor") {
+        row.dataset.quickToggleId = toggle.id;
+      }
 
       const text = document.createElement("div");
       const title = document.createElement("strong");
@@ -168,19 +191,43 @@ function renderQuickRuleToggles(): void {
       description.textContent = toggle.description;
       text.append(title, description);
 
+      if (toggle.kind === "vendor") {
+        const seg = document.createElement("div");
+        seg.className = "tri-seg";
+        seg.setAttribute("role", "group");
+        seg.setAttribute("aria-label", `${toggle.label} mode`);
+        for (const [value, segLabel] of [
+          ["off", "Off"],
+          ["filter", "Filter"],
+          ["block", "Hide all"]
+        ] as const) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.dataset.mode = value;
+          button.textContent = segLabel;
+          button.setAttribute("aria-pressed", String(mode === value || (value === "filter" && mode === "partial")));
+          if (mode === value || (value === "filter" && mode === "partial")) {
+            button.classList.add("is-active");
+          }
+          seg.append(button);
+        }
+        row.append(text, seg);
+        return row;
+      }
+
       const switchWrap = document.createElement("span");
       switchWrap.className = "toggle";
       const input = document.createElement("input");
       input.type = "checkbox";
-      input.checked = state === "on";
-      input.indeterminate = state === "partial";
+      input.checked = mode === "filter";
+      input.indeterminate = mode === "partial";
       input.dataset.quickRuleToggleId = toggle.id;
       const track = document.createElement("span");
       track.className = "toggle-track";
       switchWrap.append(input, track);
 
-      label.append(text, switchWrap);
-      return label;
+      row.append(text, switchWrap);
+      return row;
     })
   );
 }
@@ -331,15 +378,18 @@ function renderTopRules(rules: ReturnType<typeof summarizeContentDecisions>["top
       details.textContent = `${rule.count} listing${rule.count === 1 ? "" : "s"} · ${rule.category}`;
       const code = document.createElement("code");
       code.textContent = rule.ruleId;
-      const actions = document.createElement("div");
-      actions.className = "summary-actions";
-      const disableButton = document.createElement("button");
-      disableButton.type = "button";
-      disableButton.textContent = "Turn off";
-      disableButton.dataset.disableRuleId = rule.controlRuleId;
-      disableButton.title = `Stop filtering for "${rule.reason}" everywhere (${rule.controlRuleId})`;
-      actions.append(disableButton);
-      item.append(heading, details, code, actions);
+      item.append(heading, details, code);
+      if (!rule.ruleId.startsWith("block-all-")) {
+        const actions = document.createElement("div");
+        actions.className = "summary-actions";
+        const disableButton = document.createElement("button");
+        disableButton.type = "button";
+        disableButton.textContent = "Turn off";
+        disableButton.dataset.disableRuleId = rule.controlRuleId;
+        disableButton.title = `Stop filtering for "${rule.reason}" everywhere (${rule.controlRuleId})`;
+        actions.append(disableButton);
+        item.append(actions);
+      }
       return item;
     })
   );

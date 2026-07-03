@@ -474,3 +474,57 @@ button:hover {
   color: var(--muted);
   font-size: 11.5px;
 }
+
+.quick-toggle-vendor {
+  grid-template-columns: 1fr;
+  gap: 7px;
+  cursor: default;
+}
+
+.tri-seg {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  padding: 3px;
+  border-radius: 9px;
+  background: var(--card-soft);
+  justify-self: stretch;
+}
+
+.tri-seg button {
+  border: none;
+  border-radius: 7px;
+  padding: 5px 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.tri-seg button:hover {
+  color: var(--ink);
+  filter: none;
+}
+
+.tri-seg button.is-active {
+  background: var(--sage);
+  color: #fff7df;
+  box-shadow: var(--shadow);
+}
+
+.tri-seg button.is-active[data-mode="block"] {
+  background: #a33420;
+  color: #fff;
+}
+
+@media (prefers-color-scheme: dark) {
+  .tri-seg button.is-active {
+    color: #1c2618;
+  }
+
+  .tri-seg button.is-active[data-mode="block"] {
+    background: #c05a41;
+    color: #fff;
+  }
+}

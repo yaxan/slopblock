@@ -89,6 +89,8 @@ export type SlopBlockSettings = {
   showReasons: boolean;
   /** Background-fetch listing pages to score descriptions from the feed. */
   deepScan: boolean;
+  /** Quick-filter toggle ids set to "Hide all" (any pattern match hides). */
+  quickToggleBlockAll: string[];
   enabledCategories: Record<RuleCategoryId, boolean>;
   disabledRuleIds: string[];
   customBlockTerms: string[];

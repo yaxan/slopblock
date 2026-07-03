@@ -29,7 +29,7 @@ The rules are tuned and gated against real-world text, not intuition:
 
 ## Using it
 
-- The **popup** shows what happened on the current page: scanned/hidden counts, top triggers with one-click **Disable**, hidden examples with one-click **Allow item**, strength/action controls, and quick filters (Amazon/Temu sources, IKEA, liquidation stores, sponsored cards, floods, not-for-sale posts, job/loan scams…). Everything saves instantly.
+- The **popup** shows what happened on the current page: scanned/hidden counts, top triggers with one-click **Disable**, hidden examples with one-click **Allow item**, strength/action controls, and quick filters. Vendor filters are three-way — Off / Filter (catch slop sourced from them; normal used items stay) / Hide all (remove every mention) — so \u201cI never want IKEA flips\u201d is one tap. Everything saves instantly.
 - A small **pill** in the corner of Marketplace pages shows how many listings were filtered; click it for counts and a "Show hidden" preview where every hidden card displays its reason with Allow/Disable buttons.
 - The **options page** has every built-in rule with its exact pattern, weight, and confidence (searchable, individually toggleable), a rule tester for pasting listing text, custom block/vendor/allow terms, and JSON export/import. All changes autosave.
 

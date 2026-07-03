@@ -383,6 +383,40 @@ try {
   check("turning deep scan back on re-hides it from cache", states["2147792605766266"]?.action === "hide");
   await deepPopup.close();
 
+  console.log("\n== vendor hide-all (IKEA) ==");
+  const ikeaPopup = await context.newPage();
+  await ikeaPopup.goto(`chrome-extension://${extension.id}/popup.html`);
+  await ikeaPopup.waitForSelector('[data-quick-toggle-id="ikea"] button[data-mode="block"]');
+  const ikeaDefault = await ikeaPopup.evaluate(() => {
+    const row = document.querySelector('[data-quick-toggle-id="ikea"]');
+    return row?.querySelector("button.is-active")?.getAttribute("data-mode");
+  });
+  check("IKEA quick filter defaults to Filter (used IKEA stays visible)", ikeaDefault === "filter", String(ikeaDefault));
+
+  await ikeaPopup.click('[data-quick-toggle-id="ikea"] button[data-mode="block"]');
+  await page.bringToFront();
+  await page.waitForTimeout(900);
+  states = await cardStates(page);
+  check(
+    "Hide all removes the legit IKEA listing too (explicit user choice)",
+    states["9001"]?.action === "hide" && states["9001"]?.displayNone,
+    JSON.stringify(states["9001"])
+  );
+  const ikeaReason = await page.evaluate(() => {
+    const card = document.querySelector('[data-slopblock-item-id="9001"]');
+    const decision = card?.getAttribute("data-slopblock-processed");
+    return decision;
+  });
+  check("hide-all verdict recorded on the card", ikeaReason === "hide");
+
+  await ikeaPopup.bringToFront();
+  await ikeaPopup.click('[data-quick-toggle-id="ikea"] button[data-mode="filter"]');
+  await page.bringToFront();
+  await page.waitForTimeout(900);
+  states = await cardStates(page);
+  check("back to Filter restores the used IKEA listing", states["9001"]?.action === "allow", JSON.stringify(states["9001"]));
+  await ikeaPopup.close();
+
   console.log("\n== item detail pages ==");
   const detailPage = await context.newPage();
   await detailPage.goto("https://www.facebook.com/marketplace/item/2147792605766266/?ref=search", {

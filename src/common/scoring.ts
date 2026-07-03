@@ -1,4 +1,5 @@
 import { DEFAULT_RULES } from "./defaultRules";
+import { QUICK_RULE_TOGGLES } from "./ruleToggles";
 import { DEFAULT_SETTINGS, categoryEnabled, normalizeSettings, ruleEnabled } from "./settings";
 import type {
   FilterAction,
@@ -88,6 +89,7 @@ export function scoreListing(
   addSponsoredAdMatch(listing, settings, matches);
   addMissingHumanContextMatch(listing, settings, matches);
   addVendorRetailComboMatch(listing, settings, matches);
+  addVendorBlockAllMatches(listing, settings, matches);
   addCustomRuleMatches(listing, settings, matches);
 
   const allowlistHit = addAllowlistMatch(listing, settings, matches);
@@ -409,6 +411,52 @@ function addMissingHumanContextMatch(
     confidence: "low",
     sample: allText.slice(0, 90)
   });
+}
+
+const RULES_BY_ID = new Map(DEFAULT_RULES.map((rule) => [rule.id, rule]));
+
+/**
+ * "Hide all" quick-filter mode: the user explicitly chose to remove every
+ * listing matching a vendor group's patterns (e.g. anything mentioning
+ * IKEA), not just slop-looking ones. Applies regardless of individual rule
+ * toggles; allowlists still rescue specific items.
+ */
+function addVendorBlockAllMatches(
+  listing: ListingSnapshot,
+  settings: SlopBlockSettings,
+  matches: RuleMatch[]
+): void {
+  if (settings.quickToggleBlockAll.length === 0 || !categoryEnabled(settings, "custom-rules")) {
+    return;
+  }
+
+  for (const toggle of QUICK_RULE_TOGGLES) {
+    if (toggle.kind !== "vendor" || !settings.quickToggleBlockAll.includes(toggle.id)) {
+      continue;
+    }
+
+    for (const ruleId of toggle.ruleIds) {
+      const rule = RULES_BY_ID.get(ruleId);
+      if (!rule) {
+        continue;
+      }
+
+      const sample = firstMatch(fieldText(listing, rule.fields), rule.pattern);
+      if (!sample) {
+        continue;
+      }
+
+      matches.push({
+        ruleId: `block-all-${toggle.id}`,
+        category: "custom-rules",
+        weight: 96,
+        reason: `your “${toggle.label}: Hide all” setting`,
+        confidence: "high",
+        sample
+      });
+      break;
+    }
+  }
 }
 
 function addCustomRuleMatches(
