@@ -60,13 +60,17 @@ export function scoreListing(
   }
 
   const matches: RuleMatch[] = [];
+  // Build the searchable text once. The rule loop and helpers all read the
+  // same field combinations (almost always "allText"), so without this the
+  // full listing string was re-joined and re-normalized ~70× per card.
+  const text = buildTextIndex(listing);
 
   for (const rule of DEFAULT_RULES) {
     if (!isRuleActive(settings, rule.category, rule.id)) {
       continue;
     }
 
-    const haystack = fieldText(listing, rule.fields);
+    const haystack = text.forFields(rule.fields);
     const sample = firstMatch(haystack, rule.pattern);
     if (!sample) {
       continue;
@@ -82,18 +86,18 @@ export function scoreListing(
     });
   }
 
-  addBaitPricingMatch(listing, settings, matches);
-  addKeywordStuffingMatch(listing, settings, matches);
-  addCounterfeitRiskMatch(listing, settings, matches);
+  addBaitPricingMatch(listing, text, settings, matches);
+  addKeywordStuffingMatch(listing, text, settings, matches);
+  addCounterfeitRiskMatch(listing, text, settings, matches);
   addDuplicateFloodMatch(context, settings, matches);
   addSponsoredAdMatch(listing, settings, matches);
-  addMissingHumanContextMatch(listing, settings, matches);
+  addMissingHumanContextMatch(text, settings, matches);
   addCatalogPhotoMatch(context, settings, matches);
-  addVendorRetailComboMatch(listing, settings, matches);
-  addVendorBlockAllMatches(listing, settings, matches);
-  addCustomRuleMatches(listing, settings, matches);
+  addVendorRetailComboMatch(text, settings, matches);
+  addVendorBlockAllMatches(text, settings, matches);
+  addCustomRuleMatches(text, settings, matches);
 
-  const allowlistHit = addAllowlistMatch(listing, settings, matches);
+  const allowlistHit = addAllowlistMatch(listing, text, settings, matches);
   const adjustedMatches = adjustMatchesForContext(dropGemsForDefinitiveSignals(matches), context);
   const rawScore = adjustedMatches.reduce((sum, match) => sum + match.weight, 0);
   const cappedScore = allowlistHit ? Math.min(rawScore, THRESHOLDS[settings.aggressiveness].label - 1) : rawScore;
@@ -110,6 +114,40 @@ export function normalizeText(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Per-scoring-call text cache. `all`/`allLower` are the whole-listing string
+ * (by far the most-read field set); `forFields` memoizes any other
+ * combination the rules ask for. Built once per scoreListing call so the
+ * ~70 rule/helper reads don't each rebuild and re-normalize the string.
+ */
+type TextIndex = {
+  all: string;
+  allLower: string;
+  forFields(fields: ListingField[]): string;
+};
+
+function buildTextIndex(listing: ListingSnapshot): TextIndex {
+  const cache = new Map<string, string>();
+  const all = fieldText(listing, ["allText"]);
+  cache.set("allText", all);
+
+  return {
+    all,
+    allLower: all.toLowerCase(),
+    forFields(fields: ListingField[]): string {
+      const key = fields.join(",");
+      const cached = cache.get(key);
+      if (cached !== undefined) {
+        return cached;
+      }
+
+      const value = fieldText(listing, fields);
+      cache.set(key, value);
+      return value;
+    }
+  };
+}
+
 export function fingerprintText(text: string): string {
   return normalizeText(text)
     .toLowerCase()
@@ -121,6 +159,7 @@ export function fingerprintText(text: string): string {
 
 function addBaitPricingMatch(
   listing: ListingSnapshot,
+  text: TextIndex,
   settings: SlopBlockSettings,
   matches: RuleMatch[]
 ): void {
@@ -129,7 +168,7 @@ function addBaitPricingMatch(
   }
 
   const displayedPrice = parseDisplayedPrice(listing.priceText);
-  const allText = fieldText(listing, ["allText"]);
+  const allText = text.all;
   const amounts = parseDollarAmounts(allText);
   // "each", "starting at", and similar wording is everyday legit phrasing
   // ("$15 each or $50 for all") and intentionally does NOT count as bait.
@@ -187,6 +226,7 @@ function addBaitPricingMatch(
 
 function addKeywordStuffingMatch(
   listing: ListingSnapshot,
+  text: TextIndex,
   settings: SlopBlockSettings,
   matches: RuleMatch[]
 ): void {
@@ -195,7 +235,7 @@ function addKeywordStuffingMatch(
   }
 
   const title = listing.title || listing.visibleText;
-  const allText = fieldText(listing, ["allText"]).toLowerCase();
+  const allText = text.allLower;
   const vendorMentions = new Set(Array.from(allText.matchAll(VENDOR_BRANDS), (match) => match[0].toLowerCase()));
   const words = normalizeText(title.toLowerCase()).split(/\s+/).filter(Boolean);
   const uniqueWords = new Set(words);
@@ -226,6 +266,7 @@ function addKeywordStuffingMatch(
 
 function addCounterfeitRiskMatch(
   listing: ListingSnapshot,
+  text: TextIndex,
   settings: SlopBlockSettings,
   matches: RuleMatch[]
 ): void {
@@ -233,7 +274,7 @@ function addCounterfeitRiskMatch(
     return;
   }
 
-  const allText = fieldText(listing, ["allText"]);
+  const allText = text.all;
   const luxuryBrands = new Set(Array.from(allText.matchAll(LUXURY_BRANDS), (match) => match[0].toLowerCase()));
   const hypeBrands = new Set(Array.from(allText.matchAll(HYPE_BRANDS), (match) => match[0].toLowerCase()));
   const brandCount = luxuryBrands.size + hypeBrands.size;
@@ -325,11 +366,7 @@ function addCatalogPhotoMatch(context: ScoreContext, settings: SlopBlockSettings
   });
 }
 
-function addVendorRetailComboMatch(
-  listing: ListingSnapshot,
-  settings: SlopBlockSettings,
-  matches: RuleMatch[]
-): void {
+function addVendorRetailComboMatch(text: TextIndex, settings: SlopBlockSettings, matches: RuleMatch[]): void {
   if (!isRuleActive(settings, "known-vendor", "vendor-retail-combo")) {
     return;
   }
@@ -339,7 +376,7 @@ function addVendorRetailComboMatch(
     return;
   }
 
-  const allText = fieldText(listing, ["allText"]);
+  const allText = text.all;
   const hasRetailContext =
     matches.some(
       (match) => (match.category === "dropship-phrasing" || match.category === "catalog-copy") && match.weight > 0
@@ -411,16 +448,12 @@ function addSponsoredAdMatch(
   });
 }
 
-function addMissingHumanContextMatch(
-  listing: ListingSnapshot,
-  settings: SlopBlockSettings,
-  matches: RuleMatch[]
-): void {
+function addMissingHumanContextMatch(text: TextIndex, settings: SlopBlockSettings, matches: RuleMatch[]): void {
   if (!isRuleActive(settings, "missing-human", "missing-human-context")) {
     return;
   }
 
-  const allText = fieldText(listing, ["allText"]);
+  const allText = text.all;
   if (!RETAIL_STYLE_WORDS.test(allText) || CONDITION_WORDS.test(allText)) {
     return;
   }
@@ -443,11 +476,7 @@ const RULES_BY_ID = new Map(DEFAULT_RULES.map((rule) => [rule.id, rule]));
  * IKEA), not just slop-looking ones. Applies regardless of individual rule
  * toggles; allowlists still rescue specific items.
  */
-function addVendorBlockAllMatches(
-  listing: ListingSnapshot,
-  settings: SlopBlockSettings,
-  matches: RuleMatch[]
-): void {
+function addVendorBlockAllMatches(text: TextIndex, settings: SlopBlockSettings, matches: RuleMatch[]): void {
   if (settings.quickToggleBlockAll.length === 0 || !categoryEnabled(settings, "custom-rules")) {
     return;
   }
@@ -463,7 +492,7 @@ function addVendorBlockAllMatches(
         continue;
       }
 
-      const sample = firstMatch(fieldText(listing, rule.fields), rule.pattern);
+      const sample = firstMatch(text.forFields(rule.fields), rule.pattern);
       if (!sample) {
         continue;
       }
@@ -481,16 +510,12 @@ function addVendorBlockAllMatches(
   }
 }
 
-function addCustomRuleMatches(
-  listing: ListingSnapshot,
-  settings: SlopBlockSettings,
-  matches: RuleMatch[]
-): void {
+function addCustomRuleMatches(text: TextIndex, settings: SlopBlockSettings, matches: RuleMatch[]): void {
   if (!categoryEnabled(settings, "custom-rules")) {
     return;
   }
 
-  const allText = fieldText(listing, ["allText"]).toLowerCase();
+  const allText = text.allLower;
 
   for (const term of settings.customBlockTerms) {
     if (customTermMatches(allText, term)) {
@@ -521,6 +546,7 @@ function addCustomRuleMatches(
 
 function addAllowlistMatch(
   listing: ListingSnapshot,
+  text: TextIndex,
   settings: SlopBlockSettings,
   matches: RuleMatch[]
 ): boolean {
@@ -541,7 +567,7 @@ function addAllowlistMatch(
     return true;
   }
 
-  const allText = fieldText(listing, ["allText"]).toLowerCase();
+  const allText = text.allLower;
   const term = settings.customAllowTerms.find((candidate) => customTermMatches(allText, candidate));
   if (!term) {
     return false;

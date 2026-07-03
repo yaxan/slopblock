@@ -41,6 +41,7 @@ The rules are tuned and gated against real-world text, not intuition:
 npm install
 npm test          # typecheck + 104 unit tests
 npm run eval      # score the real-listing corpus (add -- --verbose for details)
+npm run bench     # per-scan hot-path performance budget (scoring + DOM extraction)
 npm run e2e       # build + end-to-end tests in real Chromium (needs npx playwright install chromium once)
 npm run build     # production build into dist/
 npm run verify    # test + eval gate + build + audit + package checks

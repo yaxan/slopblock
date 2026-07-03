@@ -496,7 +496,12 @@ function findCardContainer(anchor: HTMLAnchorElement): HTMLElement | null {
       break;
     }
 
-    const text = extractCleanText(node).visibleText;
+    // Coarse size gate via native textContent.length — no TreeWalker. This
+    // runs on every ancestor of every card on every rescan, so the cleaned
+    // text (which the snapshot step recomputes anyway) is far too expensive
+    // here. textContent is a superset of the cleaned text, so it's a safe
+    // upper bound for the break check.
+    const textLength = node.textContent?.length ?? 0;
     const anchors = Array.from(node.querySelectorAll<HTMLAnchorElement>(ITEM_ANCHOR_SELECTOR));
     const distinctListings = new Set(
       anchors.map((itemAnchor) => extractItemId(itemAnchor.getAttribute("href") ?? "") ?? itemAnchor.getAttribute("href"))
@@ -507,8 +512,8 @@ function findCardContainer(anchor: HTMLAnchorElement): HTMLElement | null {
     const isPlausibleCard =
       anchors.length >= 1 &&
       distinctListings.size === 1 &&
-      text.length >= 8 &&
-      text.length <= 1200 &&
+      textLength >= 8 &&
+      textLength <= 1400 &&
       rect.width >= 90 &&
       rect.height >= 70;
 
@@ -516,7 +521,7 @@ function findCardContainer(anchor: HTMLAnchorElement): HTMLElement | null {
       candidate = node;
     }
 
-    if (distinctListings.size > 1 || anchors.length > 3 || text.length > 1400) {
+    if (distinctListings.size > 1 || anchors.length > 3 || textLength > 1600) {
       break;
     }
 

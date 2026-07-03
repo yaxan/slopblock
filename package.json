@@ -14,7 +14,8 @@
     "test": "npm run typecheck && node scripts/run-tests.mjs",
     "typecheck": "tsc --noEmit",
     "verify": "npm test && npm run eval:gate && npm run build && npm audit --omit=optional && node scripts/verify-extension.mjs",
-    "e2e": "npm run build && node e2e/run.mjs"
+    "e2e": "npm run build && node e2e/run.mjs",
+    "bench": "node scripts/run-bench.mjs"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.280",

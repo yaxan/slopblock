@@ -111,6 +111,7 @@ Every layer of the tuning story, from fastest to deepest:
 - `npm test` — 104 unit tests (scoring, flood analysis, DOM and detail-page extraction, UI plumbing).
 - `npm run eval` — scores the real-listing corpus (`eval/corpus/`) at every strength in both card view (what feed cards show) and detail view; reports FP/miss rates and per-rule noise. `--gate` fails on any legit dim/hide at balanced; wired into `npm run verify`.
 - `npm run e2e` — loads the built extension into real Chromium against a high-fidelity Marketplace DOM fixture (reconstructed from public scraper sources, `eval/raw/fb-dom-notes.md`) and verifies hiding, flood collapse, sponsored-cell removal, infinite scroll, badges, allow-item persistence, popup summary/settings sync, item detail-page banners, deep-scan feed detection, on-device photo analysis (catalog-photo hides, image-flood collapse, Lens button), and the options tester — 53 checks.
+- `npm run bench` — per-scan hot-path budget: scoring + DOM extraction for a 40-card page must stay under one frame's worth of time. Fails on regression.
 - `npm run verify` — typecheck + tests + eval gate + build + audit + packaging checks.
 
 Current eval results (195-entry corpus: 123 real+curated legit, 53 real slop, 19 borderline): **0 legit listings labeled, dimmed, or hidden at any strength**; 98.1% of slop actioned in detail view at balanced (1 exotic miss), 58.5% actioned from card text alone.
