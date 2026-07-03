@@ -41,8 +41,16 @@ export const QUICK_RULE_TOGGLES: QuickRuleToggle[] = [
     kind: "vendor",
     label: "IKEA items",
     description:
-      "Filter catches resellers flipping new IKEA stock — normal used IKEA furniture stays visible. Hide all removes anything that mentions IKEA.",
+      "Hide all (default) removes anything that mentions IKEA — flat-pack is not a gem. Filter only catches resellers flipping new stock; Off ignores IKEA entirely.",
     ruleIds: ["vendor-ikea"]
+  },
+  {
+    id: "brand-new-resale",
+    kind: "vendor",
+    label: "Brand-new / in-box items",
+    description:
+      "Listings advertised as brand new, in box, or never used — retail flips, not secondhand gems. Filter dims them; Hide all removes them; Off ignores newness.",
+    ruleIds: ["new-in-box-title"]
   },
   {
     id: "liquidation",

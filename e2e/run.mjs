@@ -61,7 +61,10 @@ const FEED_CARDS = [
   { id: "8003", title: "iPhone 12 128GB unlocked", price: "$310", location: "Toronto, ON" },
   { id: "8004", title: "iPhone 12 128GB unlocked", price: "$199", location: "Brampton, ON" },
   // Catalog-photo card: innocent-ish text, retailer-style white-background photo
-  { id: "3101", title: "IKEA MALM dresser Brand New in box", price: "$95", location: "Toronto, ON", image: "catalog.bmp" },
+  { id: "3101", title: "Wayfair Malmo dresser Brand New in box", price: "$95", location: "Toronto, ON", image: "catalog.bmp" },
+  // Shop-configurator card: "View in 3D" exists ONLY as an aria-label (no
+  // text node) — the in-situ failure class from the user's screenshot.
+  { id: "3301", title: "Fluted 6 drawer dresser oak", price: "$400", location: "Mountain View, CA", shopOverlay: true },
   // Image flood: same photo reused, prices AND locations rotated (defeats text tiers)
   { id: "3201", title: "Modern Velvet Accent Chair Teal", price: "$120", location: "Toronto, ON", image: "flood.bmp" },
   { id: "3202", title: "Modern Velvet Accent Chair Teal", price: "$95", location: "Vaughan, ON", image: "flood.bmp" },
@@ -289,7 +292,7 @@ try {
   console.log("\n== feed scan ==");
   await page.goto("https://www.facebook.com/marketplace/", { waitUntil: "domcontentloaded" });
   try {
-    await waitForScan(page, 28);
+    await waitForScan(page, 29);
   } catch (error) {
     const debug = await page.evaluate(() => ({
       title: document.title,
@@ -304,7 +307,11 @@ try {
   await page.waitForTimeout(400);
   let states = await cardStates(page);
 
-  check("legit IKEA card stays visible", states["9001"]?.action === "allow" && !states["9001"]?.displayNone);
+  check(
+    "IKEA cards are hidden by the gem-hunting default (no deep scan needed)",
+    states["9001"]?.action === "hide" && states["9001"]?.displayNone && states["9010"]?.action === "hide",
+    JSON.stringify([states["9001"], states["9010"]])
+  );
   check("legit Amazon Echo card stays visible", states["9002"]?.action === "allow");
   check("strikethrough-price car card stays visible", states["9003"]?.action === "allow");
   check("free couch card stays visible", states["9004"]?.action === "allow");
@@ -346,6 +353,11 @@ try {
   );
   states = await cardStates(page);
   check(
+    "shop-configurator card hides via aria-label harvest (View in 3D icon button)",
+    states["3301"]?.action === "hide" && states["3301"]?.displayNone,
+    JSON.stringify(states["3301"])
+  );
+  check(
     "catalog-style stock photo pushes vendor+retail card into hide",
     states["3101"]?.action === "hide" && states["3101"]?.displayNone,
     JSON.stringify(states["3101"])
@@ -372,7 +384,7 @@ try {
   await page.evaluate((html) => {
     document.getElementById("grid-sections")?.insertAdjacentHTML("beforeend", html);
   }, scrollHtml);
-  await waitForScan(page, 32);
+  await waitForScan(page, 33);
   await page.waitForTimeout(400);
   states = await cardStates(page);
   check("appended legit cards stay visible", states["9101"]?.action === "allow" && states["9102"]?.action === "allow");
@@ -505,30 +517,31 @@ try {
     const row = document.querySelector('[data-quick-toggle-id="ikea"]');
     return row?.querySelector("button.is-active")?.getAttribute("data-mode");
   });
-  check("IKEA quick filter defaults to Filter (used IKEA stays visible)", ikeaDefault === "filter", String(ikeaDefault));
+  check("IKEA quick filter defaults to Hide all (gem-hunting default)", ikeaDefault === "block", String(ikeaDefault));
 
-  await ikeaPopup.click('[data-quick-toggle-id="ikea"] button[data-mode="block"]');
-  await page.bringToFront();
-  await page.waitForTimeout(900);
-  states = await cardStates(page);
-  check(
-    "Hide all removes the legit IKEA listing too (explicit user choice)",
-    states["9001"]?.action === "hide" && states["9001"]?.displayNone,
-    JSON.stringify(states["9001"])
-  );
-  const ikeaReason = await page.evaluate(() => {
-    const card = document.querySelector('[data-slopblock-item-id="9001"]');
-    const decision = card?.getAttribute("data-slopblock-processed");
-    return decision;
-  });
-  check("hide-all verdict recorded on the card", ikeaReason === "hide");
-
-  await ikeaPopup.bringToFront();
   await ikeaPopup.click('[data-quick-toggle-id="ikea"] button[data-mode="filter"]');
   await page.bringToFront();
   await page.waitForTimeout(900);
   states = await cardStates(page);
-  check("back to Filter restores the used IKEA listing", states["9001"]?.action === "allow", JSON.stringify(states["9001"]));
+  check(
+    "switching to Filter restores used IKEA listings (default is reversible)",
+    states["9001"]?.action === "allow" && states["9010"]?.action === "allow",
+    JSON.stringify([states["9001"], states["9010"]])
+  );
+
+  await ikeaPopup.bringToFront();
+  await ikeaPopup.click('[data-quick-toggle-id="ikea"] button[data-mode="block"]');
+  await page.bringToFront();
+  await page.waitForTimeout(900);
+  states = await cardStates(page);
+  check("back to Hide all removes them again", states["9001"]?.action === "hide", JSON.stringify(states["9001"]));
+
+  // Leave IKEA in Filter mode so the popup suggestion-chip flow below has
+  // visible IKEA matches to notice.
+  await ikeaPopup.bringToFront();
+  await ikeaPopup.click('[data-quick-toggle-id="ikea"] button[data-mode="filter"]');
+  await page.bringToFront();
+  await page.waitForTimeout(700);
   await ikeaPopup.close();
 
   console.log("\n== item detail pages ==");

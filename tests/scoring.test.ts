@@ -1,6 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_SETTINGS, normalizeSettings } from "../src/common/settings";
+
+// The gem-hunting DEFAULTS hide IKEA (Hide all) and dim brand-new titles.
+// Tests probing individual rule behavior relax those taste defaults.
+const FILTER_MODE_SETTINGS = normalizeSettings({
+  ...DEFAULT_SETTINGS,
+  quickToggleBlockAll: [],
+  disabledRuleIds: ["new-in-box-title"]
+});
 import { scoreListing } from "../src/common/scoring";
 import type { ListingSnapshot } from "../src/common/types";
 
@@ -189,9 +197,9 @@ test("the first occurrence of a repeated listing is never penalized", () => {
 test("seller profile pages ignore duplicate flood evidence", () => {
   const result = scoreListing(
     listing({
-      title: "Brand new accent chair walnut",
+      title: "Vintage accent chair walnut",
       priceText: "$60",
-      visibleText: "Brand new accent chair walnut."
+      visibleText: "Vintage accent chair walnut."
     }),
     DEFAULT_SETTINGS,
     {
@@ -538,13 +546,27 @@ test("custom allow terms can recover custom block false positives", () => {
   assert.ok(result.matches.some((match) => match.ruleId === "custom-allow-term"));
 });
 
-test("default hide mode dims vendor mentions with retail wording instead of hiding", () => {
+test("gem-hunting default hides any IKEA mention outright", () => {
+  const result = scoreListing(
+    listing({
+      title: "IKEA Kallax shelf",
+      priceText: "$40",
+      visibleText: "IKEA Kallax shelf. Used, some scratches, pickup only."
+    })
+  );
+
+  assert.equal(result.action, "hide");
+  assert.ok(result.matches.some((match) => match.ruleId === "block-all-ikea"));
+});
+
+test("in Filter mode, vendor mentions with retail wording dim instead of hiding", () => {
   const result = scoreListing(
     listing({
       title: "IKEA Kallax shelf",
       priceText: "$40",
       visibleText: "IKEA Kallax shelf. Brand new. Delivery available."
-    })
+    }),
+    FILTER_MODE_SETTINGS
   );
 
   assert.equal(result.action, "dim");
@@ -573,11 +595,11 @@ test("individual vendor rules can be disabled without disabling all vendors", ()
     listing({
       title: "IKEA Kallax shelf",
       priceText: "$40",
-      visibleText: "IKEA Kallax shelf. Brand new."
+      visibleText: "IKEA Kallax shelf."
     }),
     {
-      ...DEFAULT_SETTINGS,
-      disabledRuleIds: ["vendor-ikea"]
+      ...FILTER_MODE_SETTINGS,
+      disabledRuleIds: [...FILTER_MODE_SETTINGS.disabledRuleIds, "vendor-ikea"]
     }
   );
   const temuResult = scoreListing(
@@ -587,8 +609,8 @@ test("individual vendor rules can be disabled without disabling all vendors", ()
       visibleText: "Temu accent chair. Brand new, order now, warehouse stock."
     }),
     {
-      ...DEFAULT_SETTINGS,
-      disabledRuleIds: ["vendor-ikea"]
+      ...FILTER_MODE_SETTINGS,
+      disabledRuleIds: [...FILTER_MODE_SETTINGS.disabledRuleIds, "vendor-ikea"]
     }
   );
 
@@ -751,13 +773,14 @@ test("real moving-sale appliance with generic brand is allowed", () => {
   assert.equal(result.action, "allow");
 });
 
-test("used retail-brand furniture with condition details is not hidden by brand alone", () => {
+test("in Filter mode, used retail-brand furniture with condition details stays visible", () => {
   const result = scoreListing(
     listing({
       title: "IKEA Billy bookcase",
       priceText: "$25",
       visibleText: "IKEA Billy bookcase. Used for 6 years, shelf peg missing, scratches on side. Pickup only."
-    })
+    }),
+    FILTER_MODE_SETTINGS
   );
 
   assert.equal(result.action, "allow");
@@ -769,7 +792,8 @@ test("sparse human condition shorthand keeps retail-brand listings visible", () 
       title: "IKEA MALM dresser",
       priceText: "$75",
       visibleText: "IKEA MALM dresser. Good condition. Pickup in Ballard."
-    })
+    }),
+    FILTER_MODE_SETTINGS
   );
   const wayfairResult = scoreListing(
     listing({
@@ -973,8 +997,8 @@ test("realistic slop and gem corpus stays calibrated", () => {
       }
     },
     {
-      name: "legitimate used IKEA pickup listing",
-      action: "allow",
+      name: "used IKEA is hidden by the gem-hunting default",
+      action: "hide",
       listing: {
         title: "IKEA Kallax shelf",
         priceText: "$35",
@@ -1005,6 +1029,61 @@ test("realistic slop and gem corpus stays calibrated", () => {
     const result = scoreListing(listing(fixture.listing));
     assert.equal(result.action, fixture.action, fixture.name);
   }
+
+  // The same used-IKEA listing is fully visible once the user picks Filter.
+  const filterModeIkea = scoreListing(
+    listing({
+      title: "IKEA Kallax shelf",
+      priceText: "$35",
+      visibleText: "IKEA Kallax shelf, owned for 3 years. Scratches on one side. Pickup only because we are moving."
+    }),
+    FILTER_MODE_SETTINGS
+  );
+  assert.equal(filterModeIkea.action, "allow", "taste default must stay reversible");
+});
+
+test("brand-new/in-box titles dim by default; sealed collectibles are exempt", () => {
+  const flipper1 = scoreListing(
+    listing({ title: "New, in Box | Modern Fluted 5-Drawer Dresser", priceText: "$150", visibleText: "New, in Box | Modern Fluted 5-Drawer Dresser" })
+  );
+  assert.equal(flipper1.action, "dim");
+  assert.ok(flipper1.matches.some((match) => match.ruleId === "new-in-box-title"));
+
+  const flipper2 = scoreListing(
+    listing({ title: "✨ Stunning Brand New Pair of Walnut Nightstands", priceText: "$220", visibleText: "✨ Stunning Brand New Pair of Walnut Nightstands" })
+  );
+  assert.equal(flipper2.action, "dim");
+
+  const oneWord = scoreListing(
+    listing({ title: "Brandnew wood dresser with six drawers", priceText: "$650", visibleText: "Brandnew wood dresser with six drawers" })
+  );
+  assert.equal(oneWord.action, "dim", "'Brandnew' as one word counts");
+
+  const collector = scoreListing(
+    listing({ title: "LEGO Millennium Falcon 75192 sealed", priceText: "$500", visibleText: "LEGO Millennium Falcon 75192 sealed" })
+  );
+  assert.equal(collector.action, "allow", "bare 'sealed' collectors stay visible");
+
+  const filterOff = scoreListing(
+    listing({ title: "New, in Box | Modern Fluted 5-Drawer Dresser", priceText: "$150", visibleText: "New, in Box | Modern Fluted 5-Drawer Dresser" }),
+    FILTER_MODE_SETTINGS
+  );
+  assert.equal(filterOff.action, "allow", "reversible via the quick filter");
+});
+
+test("gem-hunting defaults migrate old saves but respect explicit choices", () => {
+  // Fresh install: IKEA ships hidden.
+  assert.deepEqual(normalizeSettings({}).quickToggleBlockAll, ["ikea"]);
+  assert.equal(normalizeSettings({}).defaultsVersion, 2);
+
+  // Pre-v2 save with no hide-alls: adopts the new default once.
+  assert.deepEqual(normalizeSettings({ quickToggleBlockAll: [] }).quickToggleBlockAll, ["ikea"]);
+
+  // Pre-v2 save where the user had configured hide-alls: respected as-is.
+  assert.deepEqual(normalizeSettings({ quickToggleBlockAll: ["liquidation"] }).quickToggleBlockAll, ["liquidation"]);
+
+  // v2 save where the user explicitly switched IKEA back to Filter: sticks.
+  assert.deepEqual(normalizeSettings({ defaultsVersion: 2, quickToggleBlockAll: [] }).quickToggleBlockAll, []);
 });
 
 test("settings normalization preserves per-rule disables and fills new defaults", () => {

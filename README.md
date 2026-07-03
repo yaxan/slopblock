@@ -1,6 +1,6 @@
 # SlopBlock
 
-SlopBlock is a local-first Chrome/Chromium extension that filters Facebook Marketplace spam: dropshipped listings, Amazon/Temu-style retail slop, bait prices, sponsored ads, external redirects, store and dealer ads, service/job/MLM spam, scam scripts, counterfeit goods, repeated listing floods, and dead sold/wanted posts — so real secondhand gems are easier to find.
+SlopBlock is a local-first Chrome/Chromium extension for **finding secondhand gems** on Facebook Marketplace by removing everything that isn't one: dropshipped listings, Amazon/Temu-style retail slop, bait prices, sponsored ads, external redirects, store and dealer ads, service/job/MLM spam, scam scripts, counterfeit goods, repeated listing floods, and dead sold/wanted posts — so real secondhand gems are easier to find.
 
 No account, backend, analytics, monetization, or remote rule updates. Filtering happens in the browser against visible Marketplace text; only your settings are stored locally with `chrome.storage.local`.
 
@@ -11,6 +11,8 @@ Explainable weighted rules with a three-band action ladder — see [docs/FILTERI
 - **Hide** is reserved for near-certain signals (sold/ISO posts, scam scripts, sponsored ads, confirmed bait pricing, replica language, repeat floods).
 - **Dim** (fogged but visible) covers medium evidence — nothing is removed on a hunch.
 - **Label** annotates mild suspicion, and every filtered card can show its reasons.
+
+**Gem-hunting defaults**: anything mentioning IKEA is hidden outright (flat-pack isn't a gem — one tap switches to Filter/Off), and brand-new/in-box titles dim by default (retail flips). Both act instantly from card text with no network wait, and both are fully reversible tri-state quick filters.
 
 Repeated-listing floods are **collapsed, not punished**: the first copy always stays visible and only repeats beyond it hide ("repeat of a visible listing, 3 of 9 identical"). Same title alone never counts — search results full of "iPhone 12 128GB" from different sellers at different prices are untouched.
 
@@ -31,7 +33,7 @@ The rules are tuned and gated against real-world text, not intuition:
 
 ## Using it
 
-- The **popup** shows what happened on the current page: scanned/hidden counts, top triggers with one-click **Disable**, hidden examples with one-click **Allow item**, strength/action controls, and quick filters. Vendor filters are three-way — Off / Filter (catch slop sourced from them; normal used items stay) / Hide all (remove every mention) — so \u201cI never want IKEA flips\u201d is one tap. Everything saves instantly.
+- The **popup** shows what happened on the current page: scanned/hidden counts, top triggers with one-click **Disable**, hidden examples with one-click **Allow item**, strength/action controls, and quick filters. Vendor filters are three-way — Off / Filter / Hide all. IKEA ships in Hide all (gem-hunting default); Amazon/Temu sources, brand-new items, and liquidation ship in Filter. Everything saves instantly.
 - A small **pill** in the corner of Marketplace pages shows how many listings were filtered; click it for counts and a "Show hidden" preview where every hidden card displays its reason with Allow/Disable buttons.
 - The **options page** has every built-in rule with its exact pattern, weight, and confidence (searchable, individually toggleable), a rule tester for pasting listing text, custom block/vendor/allow terms, and JSON export/import. All changes autosave.
 

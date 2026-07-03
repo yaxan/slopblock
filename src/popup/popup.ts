@@ -397,9 +397,9 @@ function renderVendorSuggestions(decisions: ContentDecision[]): HTMLElement | nu
     ...suggestions.map(({ toggle, count }) => {
       const item = document.createElement("li");
       const heading = document.createElement("strong");
-      heading.textContent = `${toggle.label} in ${count} visible listings`;
+      heading.textContent = `${toggle.label}: ${count} still on your screen`;
       const note = document.createElement("span");
-      note.textContent = "They pass the slop filter — hide every match instead?";
+      note.textContent = "Visible or dimmed but not gone — hide every match instead?";
       const actions = document.createElement("div");
       actions.className = "summary-actions";
       const hideAllButton = document.createElement("button");

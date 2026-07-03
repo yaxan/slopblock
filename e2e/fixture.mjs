@@ -100,6 +100,14 @@ export function renderCell(card) {
     : escapeHtml(card.price);
 
   const lines = [];
+  if (card.shopOverlay) {
+    // Retailer configurator overlays as FB renders them: an icon button whose
+    // only text is an aria-label, plus a swatch strip line.
+    lines.push(
+      `<div role="button" tabindex="0" aria-label="View in 3D" style="width:36px;height:36px;border-radius:18px;background:#333;"><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="#fff"/></svg></div>`
+    );
+    lines.push(`<div><span class="${LOCATION_CLASSES}" dir="auto">Choose color: Oak veneer</span></div>`);
+  }
   if (card.justListed) {
     lines.push(`<div><span class="${TITLE_CLASSES}" dir="auto">Just listed</span></div>`);
   }

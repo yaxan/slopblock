@@ -35,7 +35,8 @@ test("tri-state modes round-trip: off, filter, block", () => {
   assert.ok(ikea);
   assert.equal(ikea?.kind, "vendor");
 
-  assert.equal(quickToggleMode(DEFAULT_SETTINGS, ikea!), "filter");
+  // Gem-hunting default: IKEA ships in Hide all.
+  assert.equal(quickToggleMode(DEFAULT_SETTINGS, ikea!), "block");
 
   const off = setQuickToggleMode(DEFAULT_SETTINGS, ikea!, "off");
   assert.equal(quickToggleMode(off, ikea!), "off");
@@ -53,7 +54,7 @@ test("tri-state modes round-trip: off, filter, block", () => {
 
 test("hide-all mode hides every listing matching the vendor pattern", () => {
   const ikea = QUICK_RULE_TOGGLES.find((toggle) => toggle.id === "ikea")!;
-  const blockSettings = setQuickToggleMode(DEFAULT_SETTINGS, ikea, "block");
+  const blockSettings = DEFAULT_SETTINGS; // block is now the shipped default
 
   const listing = {
     idHint: "1",
@@ -63,8 +64,8 @@ test("hide-all mode hides every listing matching the vendor pattern", () => {
     visibleText: "$80\nIKEA MALM 6 drawer dresser\nToronto, ON"
   };
 
-  const defaultResult = scoreListing(listing, DEFAULT_SETTINGS, {});
-  assert.equal(defaultResult.action, "allow", "used IKEA is legit by default");
+  const filterResult = scoreListing(listing, setQuickToggleMode(DEFAULT_SETTINGS, ikea, "filter"), {});
+  assert.equal(filterResult.action, "allow", "used IKEA stays visible once the user picks Filter");
 
   const blockedResult = scoreListing(listing, blockSettings, {});
   assert.equal(blockedResult.action, "hide");

@@ -41,7 +41,7 @@ void init();
 async function init(): Promise<void> {
   settings = await loadSettings();
   createToolbar();
-  scheduleScan();
+  scheduleScan(0);
   observeMarketplace();
   installRuntimeListeners();
   installDeepScanTriggers();
@@ -161,7 +161,7 @@ function installRuntimeListeners(): void {
   });
 }
 
-function scheduleScan(delay = 180): void {
+function scheduleScan(delay = 100): void {
   window.clearTimeout(scanTimer);
   scanTimer = window.setTimeout(() => rescanMarketplace(), delay);
 }

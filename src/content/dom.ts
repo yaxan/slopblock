@@ -68,6 +68,24 @@ export function extractListingSnapshot(card: HTMLElement, anchor: HTMLAnchorElem
     snapshot.imageUrl = image.src;
   }
 
+  // Shop-catalog overlays ("View in 3D", configurators) often render as
+  // icon buttons whose only text is an aria-label — harvest those so
+  // catalog tells are visible to the rules even without text nodes.
+  const ariaLines: string[] = [];
+  for (const labelled of Array.from(card.querySelectorAll<HTMLElement>("[aria-label]")).slice(0, 12)) {
+    if (labelled.tagName === "A" || labelled.tagName === "IMG") {
+      continue;
+    }
+    const label = normalizeText(labelled.getAttribute("aria-label") ?? "");
+    if (label && label.length <= 80 && !lines.includes(label)) {
+      ariaLines.push(label);
+    }
+  }
+  if (ariaLines.length > 0) {
+    snapshot.textLines = [...lines, ...ariaLines];
+    snapshot.visibleText = normalizeText([visibleText, ...ariaLines].join("\n"));
+  }
+
   const idHint = extractItemId(anchor.href);
   if (idHint) {
     snapshot.idHint = idHint;

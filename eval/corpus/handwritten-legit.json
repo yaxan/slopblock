@@ -8,7 +8,8 @@
     "price": "$60",
     "location": "Toronto, ON",
     "body": "Good condition, some scuffs on one corner. Pickup only, near Greenwood station.",
-    "note": "Used IKEA resale is the most common legit furniture listing; vendor-ikea must not dim/hide this"
+    "note": "Used IKEA resale is the most common legit furniture listing; vendor-ikea must not dim/hide this",
+    "vendorTaste": "ikea"
   },
   {
     "id": "hw-l-002",
@@ -19,7 +20,8 @@
     "price": "$80",
     "location": "Mississauga, ON",
     "body": "White, a few scratches on top, drawers slide fine. Must pick up this weekend, we are moving.",
-    "note": "IKEA + moving context"
+    "note": "IKEA + moving context",
+    "vendorTaste": "ikea"
   },
   {
     "id": "hw-l-003",
@@ -29,7 +31,8 @@
     "title": "Ikea Poang chair with cushion",
     "price": "$30",
     "location": "Scarborough, ON",
-    "note": "Card view only: title mentions IKEA with zero condition words visible"
+    "note": "Card view only: title mentions IKEA with zero condition words visible",
+    "vendorTaste": "ikea"
   },
   {
     "id": "hw-l-004",
@@ -237,7 +240,8 @@
     "price": "$40",
     "location": "Richmond Hill, ON",
     "body": "Still sealed in box, got two for Christmas. Ninja 4qt.",
-    "note": "'brand new in box' by itself is common for legit unwanted gifts"
+    "note": "'brand new in box' by itself is common for legit unwanted gifts",
+    "vendorTaste": "new-in-box"
   },
   {
     "id": "hw-l-023",
@@ -655,5 +659,16 @@
     "location": "Toronto, ON",
     "body": "About 3ft tall, healthy, comes in ceramic pot. Porch pickup, e-transfer or cash.",
     "note": "e-transfer is the standard Canadian payment mention"
+  },
+  {
+    "id": "hw-l-061",
+    "label": "legit",
+    "kind": "pen-nib-word",
+    "source": "handwritten",
+    "title": "Pilot Custom 823 fountain pen - gold nib",
+    "price": "$180",
+    "location": "Toronto, ON",
+    "body": "Medium nib, writes beautifully. Comes with converter and box. Gently used, no scratches.",
+    "note": "'nib' as a pen part must not read as New-In-Box"
   }
 ]

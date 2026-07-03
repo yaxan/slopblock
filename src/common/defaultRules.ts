@@ -129,6 +129,16 @@ export const DEFAULT_RULES: RuleDefinition[] = [
       /\b(?:wholesale|bulk\s+(?:available|pricing|orders?)|supplier|factory\s+direct|imported\s+direct|warehouse\s+stock|new\s+inventory|reseller\s+pricing)\b/i
   },
   {
+    id: "new-in-box-title",
+    category: "dropship-phrasing",
+    reason: "brand-new/in-box resale item",
+    weight: 34,
+    confidence: "medium",
+    fields: ["title"],
+    pattern:
+      /\b(?:brand[\s-]?new|bnib|(?<!gold\s)(?<!steel\s)(?<!fine\s)(?<!medium\s)(?<!broad\s)(?<!italic\s)(?<!stub\s)nib\b(?!\s*(?:size|width|section|unit))|new\s*,?\s+in\s+(?:the\s+)?box|still\s+(?:in|sealed\s+in)\s+(?:the\s+)?(?:box|plastic|packaging|wrapper)|never\s+(?:used|opened|worn))\b/i
+  },
+  {
     id: "shop-catalog-product",
     category: "dropship-phrasing",
     reason: "shop catalog product card",

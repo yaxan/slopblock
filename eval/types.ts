@@ -14,4 +14,11 @@ export type CorpusEntry = {
   /** Listing description. Only visible in detail view, not on feed cards. */
   body?: string;
   note?: string;
+  /**
+   * Marks entries that are legitimate listings but hidden/dimmed by the
+   * gem-hunting DEFAULTS (a taste choice, not a spam verdict). The gate
+   * asserts they ARE actioned under defaults and stay fully visible under
+   * the permissive profile.
+   */
+  vendorTaste?: "ikea" | "new-in-box";
 };

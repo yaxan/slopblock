@@ -97,6 +97,8 @@ export type SlopBlockSettings = {
   deepScan: boolean;
   /** Quick-filter toggle ids set to "Hide all" (any pattern match hides). */
   quickToggleBlockAll: string[];
+  /** Bumped when shipped defaults change; lets old saves adopt new defaults once. */
+  defaultsVersion: number;
   /** Analyze listing photos on-device (catalog-style + duplicate detection). */
   imageChecks: boolean;
   enabledCategories: Record<RuleCategoryId, boolean>;

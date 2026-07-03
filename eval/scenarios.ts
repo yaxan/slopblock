@@ -46,7 +46,7 @@ const SCENARIOS: Scenario[] = [
     name: "true-flood-identical",
     description: "9 distinct listing IDs, identical title+price+location. Keep the first, hide the repeats.",
     snapshots: Array.from({ length: 9 }, (_, index) =>
-      listing(index, "Sectional Sofa Couch Brand New Delivery", "$199", "Toronto, ON")
+      listing(index, "Sectional Sofa Couch Grey Fast Delivery", "$199", "Toronto, ON")
     ),
     expect: Object.fromEntries(Array.from({ length: 8 }, (_, index) => [index + 1, "hide"]))
   },
@@ -98,16 +98,16 @@ const SCENARIOS: Scenario[] = [
     name: "mixed-feed-flood-and-legit",
     description: "A flood group interleaved with unique legit listings: only the flood repeats hide.",
     snapshots: [
-      listing(0, "IKEA Kallax shelf white", "$60", "Toronto, ON"),
-      listing(1, "Queen Mattress Brand New In Plastic", "$120", "Toronto, ON"),
+      listing(0, "Solid pine cube shelf white", "$60", "Toronto, ON"),
+      listing(1, "Queen Mattress Pillowtop In Plastic", "$120", "Toronto, ON"),
       listing(2, "Vintage oak dresser", "$220", "Toronto, ON"),
-      listing(3, "Queen Mattress Brand New In Plastic", "$120", "Scarborough, ON"),
+      listing(3, "Queen Mattress Pillowtop In Plastic", "$120", "Scarborough, ON"),
       listing(4, "Free coffee table", "Free", "Toronto, ON"),
-      listing(5, "Queen Mattress Brand New In Plastic", "$120", "North York, ON"),
+      listing(5, "Queen Mattress Pillowtop In Plastic", "$120", "North York, ON"),
       listing(6, "iPhone 12 128GB unlocked", "$250", "Toronto, ON"),
-      listing(7, "Queen Mattress Brand New In Plastic", "$120", "Etobicoke, ON"),
-      listing(8, "Queen Mattress Brand New In Plastic", "$120", "Toronto, ON"),
-      listing(9, "Queen Mattress Brand New In Plastic", "$120", "Mississauga, ON")
+      listing(7, "Queen Mattress Pillowtop In Plastic", "$120", "Etobicoke, ON"),
+      listing(8, "Queen Mattress Pillowtop In Plastic", "$120", "Toronto, ON"),
+      listing(9, "Queen Mattress Pillowtop In Plastic", "$120", "Mississauga, ON")
     ],
     expect: { 3: "hide", 5: "hide", 7: "hide", 8: "hide", 9: "hide" }
   }

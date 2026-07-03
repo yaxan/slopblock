@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { scoreListing } from "../src/common/scoring";
-import { DEFAULT_SETTINGS } from "../src/common/settings";
+import { DEFAULT_SETTINGS, normalizeSettings } from "../src/common/settings";
 import { runFloodScenarios } from "./scenarios";
 import type { Aggressiveness, FilterAction, ListingSnapshot, RuleMatch } from "../src/common/types";
 import type { CorpusEntry } from "./types";
@@ -61,8 +61,25 @@ function snapshotFor(entry: CorpusEntry, view: View): ListingSnapshot {
   };
 }
 
-function evaluate(entries: CorpusEntry[], level: Aggressiveness, view: View): EntryResult[] {
-  const settings = { ...DEFAULT_SETTINGS, aggressiveness: level };
+/**
+ * Permissive profile: every vendor-taste default relaxed (no hide-alls,
+ * brand-new rule off). Under it, ALL legit entries — including vendor-taste
+ * ones — must stay fully visible, guaranteeing the taste defaults remain a
+ * reversible choice rather than baked-in false positives.
+ */
+const PERMISSIVE_SETTINGS = normalizeSettings({
+  ...DEFAULT_SETTINGS,
+  quickToggleBlockAll: [],
+  disabledRuleIds: ["new-in-box-title"]
+});
+
+function evaluate(
+  entries: CorpusEntry[],
+  level: Aggressiveness,
+  view: View,
+  baseSettings = DEFAULT_SETTINGS
+): EntryResult[] {
+  const settings = { ...baseSettings, aggressiveness: level };
   return entries.map((entry) => {
     const result = scoreListing(snapshotFor(entry, view), settings, {});
     return { entry, view, action: result.action, score: result.score, matches: result.matches };
@@ -96,20 +113,25 @@ function pct(part: number, whole: number): string {
 
 function main(): void {
   const entries = loadCorpus();
-  const legitTotal = entries.filter((entry) => entry.label === "legit").length;
+  const pureLegit = entries.filter((entry) => entry.label === "legit" && !entry.vendorTaste);
+  const tasteLegit = entries.filter((entry) => entry.label === "legit" && entry.vendorTaste);
+  const legitTotal = pureLegit.length;
   const slopTotal = entries.filter((entry) => entry.label === "slop").length;
-  const borderlineTotal = entries.length - legitTotal - slopTotal;
+  const borderlineTotal = entries.filter((entry) => entry.label === "borderline").length;
 
-  console.log(`Corpus: ${entries.length} entries (${legitTotal} legit, ${slopTotal} slop, ${borderlineTotal} borderline)\n`);
+  console.log(
+    `Corpus: ${entries.length} entries (${legitTotal} legit, ${tasteLegit.length} vendor-taste, ${slopTotal} slop, ${borderlineTotal} borderline)\n`
+  );
 
   let hardFailures = 0;
 
   for (const level of onlyLevels) {
     for (const view of ["card", "detail"] as View[]) {
       const results = evaluate(entries, level, view);
-      const fpHide = count(results, "legit", "hide");
-      const fpDim = count(results, "legit", "dim");
-      const fpLabel = count(results, "legit", "label");
+      const pureResults = results.filter((result) => !result.entry.vendorTaste);
+      const fpHide = count(pureResults, "legit", "hide");
+      const fpDim = count(pureResults, "legit", "dim");
+      const fpLabel = count(pureResults, "legit", "label");
       const tpHide = count(results, "slop", "hide");
       const tpDim = count(results, "slop", "dim");
       const tpLabel = count(results, "slop", "label");
@@ -129,7 +151,7 @@ function main(): void {
 
       const failures = results.filter(
         (result) =>
-          (result.entry.label === "legit" && result.action !== "allow") ||
+          (result.entry.label === "legit" && !result.entry.vendorTaste && result.action !== "allow") ||
           (result.entry.label === "slop" && result.view === "detail" && result.action === "allow")
       );
 
@@ -160,12 +182,52 @@ function main(): void {
     console.log(`  ${row.ruleId.padEnd(34)} legit ${String(row.legit).padStart(3)} | slop ${String(row.slop).padStart(3)}${marker}`);
   }
 
+  // --- Gem-hunting defaults: vendor-taste entries must be actioned by DEFAULT ---
+  console.log("\n== Vendor-taste defaults (balanced / card view) ==");
+  const tasteResults = evaluate(tasteLegit, "balanced", "card");
+  let tasteFailures = 0;
+  for (const result of tasteResults) {
+    const taste = result.entry.vendorTaste;
+    const ok = taste === "ikea" ? result.action === "hide" : result.action === "dim" || result.action === "hide";
+    if (!ok) {
+      tasteFailures += 1;
+      console.log(`  FAIL ${result.entry.id} (${taste}): expected ${taste === "ikea" ? "hide" : "dim+"}, got ${result.action} — "${result.entry.title}"`);
+    }
+  }
+  console.log(
+    tasteFailures === 0
+      ? `  ok   all ${tasteResults.length} vendor-taste entries actioned by default (ikea hidden, new-in-box dimmed+)`
+      : `  ${tasteFailures} vendor-taste default failure(s)`
+  );
+  hardFailures += tasteFailures;
+
+  // --- Permissive profile: the taste defaults must be fully reversible ---
+  console.log("\n== Permissive profile (vendor taste relaxed; balanced) ==");
+  let permissiveFailures = 0;
+  for (const view of ["card", "detail"] as View[]) {
+    const results = evaluate(
+      entries.filter((entry) => entry.label === "legit"),
+      "balanced",
+      view,
+      PERMISSIVE_SETTINGS
+    );
+    const notVisible = results.filter((result) => result.action === "dim" || result.action === "hide");
+    permissiveFailures += notVisible.length;
+    for (const failure of notVisible) {
+      console.log(`  FAIL ${failure.entry.id} (${view}): ${failure.action} under permissive profile — "${failure.entry.title}"`);
+    }
+    console.log(`  ${view} view: ${results.length - notVisible.length}/${results.length} legit entries fully visible`);
+  }
+  hardFailures += permissiveFailures;
+
   console.log("");
   const floodFailures = runFloodScenarios(verbose);
   hardFailures += floodFailures;
 
   if (gate && hardFailures > 0) {
-    console.error(`\nEVAL GATE FAILED: ${hardFailures} hard failure(s) (legit dimmed/hidden at balanced, or flood scenario failed).`);
+    console.error(
+      `\nEVAL GATE FAILED: ${hardFailures} hard failure(s) (legit dimmed/hidden at balanced, vendor-taste default not enforced, permissive profile regression, or flood scenario failure).`
+    );
     process.exit(1);
   }
 }

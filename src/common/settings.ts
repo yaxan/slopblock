@@ -9,7 +9,10 @@ export const DEFAULT_SETTINGS: SlopBlockSettings = {
   filterMode: "hide",
   showReasons: true,
   deepScan: true,
-  quickToggleBlockAll: [],
+  // Gem-hunting default: IKEA/flat-pack is noise regardless of condition.
+  // One tap in the popup switches it to Filter (slop-only) or Off.
+  quickToggleBlockAll: ["ikea"],
+  defaultsVersion: 2,
   imageChecks: true,
   enabledCategories: defaultEnabledCategories(),
   disabledRuleIds: [],
@@ -50,7 +53,8 @@ export function normalizeSettings(input: unknown): SlopBlockSettings {
     deepScan: typeof value.deepScan === "boolean" ? value.deepScan : DEFAULT_SETTINGS.deepScan,
     enabledCategories,
     disabledRuleIds: normalizeTermList(value.disabledRuleIds),
-    quickToggleBlockAll: normalizeTermList(value.quickToggleBlockAll),
+    quickToggleBlockAll: migrateQuickToggleBlockAll(value),
+    defaultsVersion: DEFAULT_SETTINGS.defaultsVersion,
     imageChecks: typeof value.imageChecks === "boolean" ? value.imageChecks : DEFAULT_SETTINGS.imageChecks,
     customBlockTerms: normalizeTermList(value.customBlockTerms),
     customVendorTerms: normalizeTermList(value.customVendorTerms),
@@ -95,6 +99,22 @@ export function categoryEnabled(settings: SlopBlockSettings, categoryId: RuleCat
 
 export function ruleEnabled(settings: SlopBlockSettings, ruleId: string): boolean {
   return !settings.disabledRuleIds.includes(ruleId);
+}
+
+/**
+ * Settings saved before defaultsVersion 2 predate the gem-hunting default
+ * (IKEA = Hide all). Adopt the new default for those saves unless the user
+ * had explicitly configured hide-alls; saves made at v2+ are respected as-is
+ * (setting IKEA back to Filter sticks).
+ */
+function migrateQuickToggleBlockAll(value: Record<string, unknown>): string[] {
+  const stored = normalizeTermList(value.quickToggleBlockAll);
+  const storedVersion = typeof value.defaultsVersion === "number" ? value.defaultsVersion : 0;
+  if (storedVersion >= DEFAULT_SETTINGS.defaultsVersion || stored.length > 0) {
+    return stored;
+  }
+
+  return [...DEFAULT_SETTINGS.quickToggleBlockAll];
 }
 
 function isRecord(input: unknown): input is Record<string, unknown> {
