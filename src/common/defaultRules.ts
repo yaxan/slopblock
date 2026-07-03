@@ -585,6 +585,15 @@ export const DYNAMIC_RULE_CONTROLS: RuleControlDefinition[] = [
     description: "Hides Marketplace cards with a standalone Sponsored marker. Listings merely containing the word 'sponsored' are unaffected."
   },
   {
+    id: "image-catalog-photo",
+    category: "catalog-copy",
+    reason: "retailer-style stock photo",
+    weight: 18,
+    confidence: "medium",
+    description:
+      "On-device photo check: product on a pure-white background, the retailer catalog style used by Amazon/Wayfair copy-pastes. Never acts alone; stacks with vendor and retail wording."
+  },
+  {
     id: "missing-human-context",
     category: "missing-human",
     reason: "commercial text without condition detail",

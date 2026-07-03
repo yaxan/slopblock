@@ -10,7 +10,7 @@ import { createHash, generateKeyPairSync } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { renderCell, renderGridSection, renderItemDetailPage, renderMarketplacePage } from "./fixture.mjs";
+import { catalogBmp, floodBmp, noiseBmp, renderCell, renderGridSection, renderItemDetailPage, renderMarketplacePage } from "./fixture.mjs";
 
 const HEADED = process.argv.includes("--headed");
 const ROOT = new URL("..", import.meta.url).pathname;
@@ -58,6 +58,13 @@ const FEED_CARDS = [
   { id: "8002", title: "iPhone 12 128GB unlocked", price: "$280", location: "Mississauga, ON" },
   { id: "8003", title: "iPhone 12 128GB unlocked", price: "$310", location: "Toronto, ON" },
   { id: "8004", title: "iPhone 12 128GB unlocked", price: "$199", location: "Brampton, ON" },
+  // Catalog-photo card: innocent-ish text, retailer-style white-background photo
+  { id: "3101", title: "IKEA MALM dresser Brand New in box", price: "$95", location: "Toronto, ON", image: "catalog.bmp" },
+  // Image flood: same photo reused, prices AND locations rotated (defeats text tiers)
+  { id: "3201", title: "Modern Velvet Accent Chair Teal", price: "$120", location: "Toronto, ON", image: "flood.bmp" },
+  { id: "3202", title: "Modern Velvet Accent Chair Teal", price: "$95", location: "Vaughan, ON", image: "flood.bmp" },
+  { id: "3203", title: "Modern Velvet Accent Chair Teal", price: "$140", location: "Oshawa, ON", image: "flood.bmp" },
+  { id: "3204", title: "Modern Velvet Accent Chair Teal", price: "$110", location: "Milton, ON", image: "flood.bmp" },
   { id: "v-1", virtualized: true }
 ];
 
@@ -133,7 +140,16 @@ async function installRoutes(context) {
   await context.route("https://www.facebook.com/**", async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.startsWith("/img/")) {
-      await route.fulfill({ status: 200, contentType: "image/png", body: PNG_1PX });
+      const name = url.pathname.slice(5);
+      if (name === "catalog.bmp") {
+        await route.fulfill({ status: 200, contentType: "image/bmp", body: catalogBmp() });
+      } else if (name === "flood.bmp") {
+        await route.fulfill({ status: 200, contentType: "image/bmp", body: floodBmp() });
+      } else if (name.endsWith(".bmp")) {
+        await route.fulfill({ status: 200, contentType: "image/bmp", body: noiseBmp(name) });
+      } else {
+        await route.fulfill({ status: 200, contentType: "image/png", body: PNG_1PX });
+      }
       return;
     }
 
@@ -249,7 +265,7 @@ try {
   console.log("\n== feed scan ==");
   await page.goto("https://www.facebook.com/marketplace/", { waitUntil: "domcontentloaded" });
   try {
-    await waitForScan(page, 21);
+    await waitForScan(page, 26);
   } catch (error) {
     const debug = await page.evaluate(() => ({
       title: document.title,
@@ -298,12 +314,41 @@ try {
   check("toolbar reports scans", toolbarStats.scanned >= 19, JSON.stringify(toolbarStats));
   check("toolbar reports hidden count", toolbarStats.hidden >= 8, JSON.stringify(toolbarStats));
 
+  console.log("\n== local photo analysis ==");
+  await page.waitForFunction(
+    () => document.querySelector('[data-slopblock-item-id="3101"]')?.getAttribute("data-slopblock-processed") === "hide",
+    undefined,
+    { timeout: 15000 }
+  );
+  states = await cardStates(page);
+  check(
+    "catalog-style stock photo pushes vendor+retail card into hide",
+    states["3101"]?.action === "hide" && states["3101"]?.displayNone,
+    JSON.stringify(states["3101"])
+  );
+  await page.waitForFunction(
+    () => document.querySelector('[data-slopblock-item-id="3204"]')?.getAttribute("data-slopblock-processed") === "hide",
+    undefined,
+    { timeout: 15000 }
+  );
+  states = await cardStates(page);
+  check(
+    "image flood collapses despite rotated prices AND locations",
+    states["3202"]?.action === "hide" && states["3203"]?.action === "hide" && states["3204"]?.action === "hide",
+    JSON.stringify([states["3202"], states["3203"], states["3204"]])
+  );
+  check("first copy of the image flood stays visible", states["3201"]?.action === "allow", JSON.stringify(states["3201"]));
+  check(
+    "same-title different-photo search results are untouched by image analysis",
+    ["8001", "8002", "8003", "8004"].every((id) => states[id]?.action === "allow")
+  );
+
   console.log("\n== infinite scroll append ==");
   const scrollHtml = renderGridSection(SCROLL_CARDS, { heading: "More listings" });
   await page.evaluate((html) => {
     document.getElementById("grid-sections")?.insertAdjacentHTML("beforeend", html);
   }, scrollHtml);
-  await waitForScan(page, 25);
+  await waitForScan(page, 30);
   await page.waitForTimeout(400);
   states = await cardStates(page);
   check("appended legit cards stay visible", states["9101"]?.action === "allow" && states["9102"]?.action === "allow");
@@ -339,6 +384,11 @@ try {
     return false;
   });
   check("show-anyway button exists on badge", allowClicked);
+  const lensInfo = await page.evaluate(() => {
+    const button = document.querySelector("[data-slopblock-lens]");
+    return { present: button !== null, title: button?.getAttribute("title") ?? "" };
+  });
+  check("reverse-image-search button appears on badges (user-initiated Lens)", lensInfo.present, JSON.stringify(lensInfo));
   await page.waitForTimeout(700);
   states = await cardStates(page);
   check("allowed item becomes visible", states["9007"]?.action === "allow", JSON.stringify(states["9007"]));

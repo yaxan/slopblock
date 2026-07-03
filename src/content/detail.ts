@@ -146,6 +146,14 @@ export function extractDetailSnapshot(container: HTMLElement, url: string): List
     snapshot.idHint = idHint;
   }
 
+  const documentRef = container.ownerDocument;
+  const hero =
+    documentRef.querySelector<HTMLImageElement>('img[alt^="Product photo of"]') ??
+    documentRef.querySelector<HTMLImageElement>('div[role="main"] img[src], div[role="dialog"] img[src]');
+  if (hero?.src && /^https?:/i.test(hero.src)) {
+    snapshot.imageUrl = hero.src;
+  }
+
   return snapshot;
 }
 

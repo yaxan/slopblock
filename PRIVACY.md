@@ -19,6 +19,12 @@ The extension does not include:
 
 The optional "Deep scan descriptions" feature (on by default, toggleable in the popup and settings) fetches Marketplace listing pages directly from facebook.com in the background using your existing Facebook session — the same request your browser makes when you click a listing. This is used only to read the listing's own title, price, and description so spam can be detected before you open it. These requests go only to facebook.com; results are kept in memory for the current tab session only and are never stored or transmitted anywhere.
 
+## Photo Analysis
+
+The "Analyze listing photos on this device" feature (on by default, toggleable in settings) examines listing photos entirely on your device to detect retailer-catalog-style images and reused photos. Photos are never uploaded, and no external service is contacted.
+
+The "Find photo online" button on flagged listings opens Google Lens with the photo's public URL in a new tab. This only happens when you click it — it is your action in your browser, and SlopBlock itself never contacts Google or any third party.
+
 ## Local Storage
 
 SlopBlock stores only user-controlled settings in Chrome extension storage:

@@ -88,6 +88,7 @@ export function scoreListing(
   addDuplicateFloodMatch(context, settings, matches);
   addSponsoredAdMatch(listing, settings, matches);
   addMissingHumanContextMatch(listing, settings, matches);
+  addCatalogPhotoMatch(context, settings, matches);
   addVendorRetailComboMatch(listing, settings, matches);
   addVendorBlockAllMatches(listing, settings, matches);
   addCustomRuleMatches(listing, settings, matches);
@@ -300,6 +301,27 @@ function addDuplicateFloodMatch(
     weight: 80,
     reason: `repeat of a visible listing (${duplicate.ordinal + 1} of ${duplicate.groupSize} identical)`,
     confidence: "high"
+  });
+}
+
+/**
+ * Retailer catalog photos (product on pure white) are how Amazon/Wayfair
+ * copy-pastes look. Context-band weight: it never acts alone — real people
+ * occasionally reuse the official photo for a genuinely used item — but it
+ * stacks with vendor/retail evidence and feeds the vendor-retail combo via
+ * its catalog-copy category.
+ */
+function addCatalogPhotoMatch(context: ScoreContext, settings: SlopBlockSettings, matches: RuleMatch[]): void {
+  if (!context.imageCatalogStyle || !isRuleActive(settings, "catalog-copy", "image-catalog-photo")) {
+    return;
+  }
+
+  matches.push({
+    ruleId: "image-catalog-photo",
+    category: "catalog-copy",
+    weight: 18,
+    reason: "retailer-style stock photo",
+    confidence: "medium"
   });
 }
 

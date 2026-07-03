@@ -5,6 +5,7 @@ import { STORAGE_KEY, normalizeSettings } from "../common/settings";
 import { loadSettings, saveSettings } from "../common/storage";
 import { toContentDecision } from "./diagnostics";
 import { createDeepScanner } from "./deepScan";
+import { createImageScanner } from "./imageScan";
 import { analyzeDuplicateFlood } from "./duplicateFlood";
 import { expandSeeMore, extractDetailSnapshot, findDetailContainer, isItemDetailUrl } from "./detail";
 import {
@@ -33,6 +34,7 @@ let scanTimer: number | undefined;
 let stats: ContentStats = { scanned: 0, hidden: 0, dimmed: 0, labeled: 0 };
 let lastDecisions: ReturnType<typeof toContentDecision>[] = [];
 const deepScanner = createDeepScanner(() => scheduleScan(0));
+const imageScanner = createImageScanner(() => scheduleScan(0));
 
 void init();
 
@@ -159,6 +161,21 @@ function rescanMarketplace(): void {
   const isSellerProfileContext = isMarketplaceSellerProfileContext(window.location.href);
   const cards = collectListingCards();
   const snapshots = cards.map(({ card, anchor }) => ({ card, snapshot: extractListingSnapshot(card, anchor) }));
+
+  const imageChecksOn = settings.imageChecks;
+  const imageAnalyses = snapshots.map(({ snapshot }) => {
+    if (!imageChecksOn || !snapshot.imageUrl) {
+      return undefined;
+    }
+
+    imageScanner.request(snapshot.imageUrl);
+    const analysis = imageScanner.get(snapshot.imageUrl);
+    if (analysis) {
+      snapshot.imageHash = analysis.hash;
+    }
+    return analysis;
+  });
+
   const duplicateInfos = isSellerProfileContext ? [] : analyzeDuplicateFlood(snapshots.map(({ snapshot }) => snapshot));
 
   stats = { scanned: snapshots.length, hidden: 0, dimmed: 0, labeled: 0 };
@@ -169,6 +186,9 @@ function rescanMarketplace(): void {
     const duplicate = duplicateInfos[index];
     if (duplicate) {
       context.duplicate = duplicate;
+    }
+    if (imageAnalyses[index]?.catalogStyle) {
+      context.imageCatalogStyle = true;
     }
 
     if (snapshot.idHint) {
@@ -237,7 +257,19 @@ function scanItemDetail(): void {
     deepScanner.setSnapshot(snapshot.idHint, snapshot);
   }
 
-  const result = scoreListing(snapshot, settings, {});
+  const detailContext: ScoreContext = {};
+  if (settings.imageChecks && snapshot.imageUrl) {
+    imageScanner.request(snapshot.imageUrl);
+    const analysis = imageScanner.get(snapshot.imageUrl);
+    if (analysis) {
+      snapshot.imageHash = analysis.hash;
+      if (analysis.catalogStyle) {
+        detailContext.imageCatalogStyle = true;
+      }
+    }
+  }
+
+  const result = scoreListing(snapshot, settings, detailContext);
   lastDecisions.push(toContentDecision(snapshot, result));
   stats.scanned += 1;
   if (result.action !== "allow") {
@@ -321,6 +353,8 @@ function applyDetailVerdict(container: HTMLElement, result: ScoreResult, snapsho
     });
     actions.append(disableRuleButton);
   }
+
+  appendLensButton(actions, snapshot);
 
   banner.append(actions);
   container.prepend(banner);
@@ -645,10 +679,37 @@ function addBadge(card: HTMLElement, result: ScoreResult, snapshot: ListingSnaps
       actions.append(disableRuleButton);
     }
 
+    appendLensButton(actions, snapshot);
+
     badge.append(actions);
   }
 
   card.prepend(badge);
+}
+
+/**
+ * User-initiated reverse image search: opens Google Lens with the listing
+ * photo URL in a new tab. Nothing happens unless the user clicks — SlopBlock
+ * itself never sends anything to third parties.
+ */
+function appendLensButton(actions: HTMLElement, snapshot: ListingSnapshot): void {
+  const imageUrl = snapshot.imageUrl;
+  if (!imageUrl) {
+    return;
+  }
+
+  const lensButton = document.createElement("button");
+  lensButton.type = "button";
+  lensButton.dataset.variant = "quiet";
+  lensButton.dataset.slopblockLens = "true";
+  lensButton.textContent = "Find photo online";
+  lensButton.title = "Reverse-search this listing's photo with Google Lens (opens a new tab; only happens when you click)";
+  lensButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    window.open(`https://lens.google.com/uploadbyurl?url=${encodeURIComponent(imageUrl)}`, "_blank", "noopener");
+  });
+  actions.append(lensButton);
 }
 
 function removeBadge(card: HTMLElement): void {

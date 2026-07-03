@@ -37,6 +37,10 @@ export type ListingSnapshot = {
   sellerText?: string;
   visibleText: string;
   textLines?: string[];
+  /** Card/hero photo URL, used for local-only image analysis. */
+  imageUrl?: string;
+  /** Perceptual hash of the photo, when analyzed (local dHash). */
+  imageHash?: string;
 };
 
 export type DuplicateInfo = {
@@ -44,12 +48,14 @@ export type DuplicateInfo = {
   groupSize: number;
   /** 0 = first occurrence in the scan (always kept visible), 1+ = collapsible repeat. */
   ordinal: number;
-  tier: "exact" | "bait" | "mass" | null;
+  tier: "exact" | "bait" | "mass" | "image" | null;
 };
 
 export type ScoreContext = {
   duplicate?: DuplicateInfo;
   isSellerProfileContext?: boolean;
+  /** Local image analysis found a retailer-catalog-style photo. */
+  imageCatalogStyle?: boolean;
 };
 
 export type RuleDefinition = {
@@ -91,6 +97,8 @@ export type SlopBlockSettings = {
   deepScan: boolean;
   /** Quick-filter toggle ids set to "Hide all" (any pattern match hides). */
   quickToggleBlockAll: string[];
+  /** Analyze listing photos on-device (catalog-style + duplicate detection). */
+  imageChecks: boolean;
   enabledCategories: Record<RuleCategoryId, boolean>;
   disabledRuleIds: string[];
   customBlockTerms: string[];

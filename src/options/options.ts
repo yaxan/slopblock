@@ -12,6 +12,7 @@ const customAllowTerms = element<HTMLTextAreaElement>("customAllowTerms");
 const customAllowItemIds = element<HTMLTextAreaElement>("customAllowItemIds");
 const showReasonsInput = element<HTMLInputElement>("showReasons");
 const deepScanInput = element<HTMLInputElement>("deepScan");
+const imageChecksInput = element<HTMLInputElement>("imageChecks");
 const categoriesNode = element<HTMLDivElement>("categories");
 const quickRuleTogglesNode = element<HTMLDivElement>("quickRuleToggles");
 const rulesNode = element<HTMLDivElement>("rules");
@@ -55,6 +56,7 @@ function render(): void {
   customAllowItemIds.value = serializeTerms(settings.customAllowItemIds);
   showReasonsInput.checked = settings.showReasons;
   deepScanInput.checked = settings.deepScan;
+  imageChecksInput.checked = settings.imageChecks;
   renderCategories();
   renderQuickRuleToggles();
   renderRules();
@@ -76,6 +78,11 @@ function bindEvents(): void {
   deepScanInput.addEventListener("change", () => {
     settings = { ...settings, deepScan: deepScanInput.checked };
     void persist(deepScanInput.checked ? "Deep scan on" : "Deep scan off");
+  });
+
+  imageChecksInput.addEventListener("change", () => {
+    settings = { ...settings, imageChecks: imageChecksInput.checked };
+    void persist(imageChecksInput.checked ? "Photo analysis on" : "Photo analysis off");
   });
 
   categoriesNode.addEventListener("change", (event) => {

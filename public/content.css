@@ -68,6 +68,11 @@
   filter: brightness(1.12) !important;
 }
 
+.slopblock-badge-actions button[data-variant="quiet"] {
+  background: rgba(255, 251, 240, 0.9) !important;
+  color: #2f4a31 !important;
+}
+
 /* ---- item detail verdict banner ---- */
 
 .slopblock-detail-banner {

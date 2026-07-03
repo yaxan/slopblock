@@ -7,6 +7,7 @@ import "./contentDom.test";
 import "./deepScan.test";
 import "./detail.test";
 import "./duplicateFlood.test";
+import "./imageScan.test";
 import "./optionsUi.test";
 import "./contentDiagnostics.test";
 import "./diagnostics.test";

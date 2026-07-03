@@ -16,6 +16,8 @@ Repeated-listing floods are **collapsed, not punished**: the first copy always s
 
 **Deep scan catches description-only spam right in the feed.** Cards only show price/title/location, so a listing whose only tell is a Wayfair catalog link in its description looks innocent while browsing. Deep scan background-fetches the listing page from facebook.com (the same request as clicking it, throttled and viewport-first), reads the seller-written fields from the page data, and applies the verdict to the card before you ever open it. On by default; one switch to turn off; nothing leaves the browser.
 
+**Photos are analyzed on-device — no OCR models, no uploads.** Retailer catalog photos are product-on-pure-white (Amazon requires it), so a canvas check catches Amazon/Wayfair picture copy-pastes locally in microseconds. A perceptual hash catches repost floods that reuse the same photo while rotating price and location — a pattern no text rule can see. And a "Find photo online" button on flagged cards opens Google Lens for a full reverse image search, strictly when you click it.
+
 **Item detail pages get their own scan.** Feed cards only show price/title/location, so listings whose evidence lives in the description (retailer catalog links, order language, scam scripts) are scored when you open them: outbound links are decoded from Facebook's l.facebook.com wrappers, truncated "See more" descriptions are expanded, and a verdict banner with reasons and one-click Allow/Disable appears at the top of the listing — the page itself is never hidden.
 
 ## Tested against real listings
@@ -25,7 +27,7 @@ The rules are tuned and gated against real-world text, not intuition:
 - `eval/corpus/` holds 195 labeled entries: real listings fetched from public marketplace pages (furniture, electronics, cars, free stuff, tools…), real dealer/scam/dropship/counterfeit text collected from consumer-protection reports and community documentation, plus curated edge cases (IKEA resales, "cash or venmo", "$15 each", phone numbers, "no dealer fees here"…).
 - `npm run eval` scores the whole corpus at every strength in both **card view** (price/title/location — what feed cards actually show) and **detail view**; it reports false positives, misses, and per-rule noise.
 - `npm run eval:gate` (part of `npm run verify`) **fails the build if any legit listing gets dimmed or hidden** at balanced strength. Current state: 0 false positives at any strength, 98% of slop actioned in detail view.
-- `npm run e2e` loads the built extension into real Chromium against a high-fidelity Marketplace DOM fixture (structure reconstructed from public scraper sources) and runs 44 end-to-end checks: hiding, flood collapse, sponsored-cell removal, item detail-page banners (including the See-more/link-wrapper handling), infinite scroll, on-card badges, allow-item persistence, popup summary and settings sync, options rule tester.
+- `npm run e2e` loads the built extension into real Chromium against a high-fidelity Marketplace DOM fixture (structure reconstructed from public scraper sources) and runs 53 end-to-end checks: hiding, flood collapse, sponsored-cell removal, item detail-page banners (including the See-more/link-wrapper handling), infinite scroll, on-card badges, allow-item persistence, popup summary and settings sync, options rule tester.
 
 ## Using it
 
@@ -37,7 +39,7 @@ The rules are tuned and gated against real-world text, not intuition:
 
 ```sh
 npm install
-npm test          # typecheck + 91 unit tests
+npm test          # typecheck + 99 unit tests
 npm run eval      # score the real-listing corpus (add -- --verbose for details)
 npm run e2e       # build + end-to-end tests in real Chromium (needs npx playwright install chromium once)
 npm run build     # production build into dist/

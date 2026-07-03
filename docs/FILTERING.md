@@ -38,6 +38,17 @@ Feed cards expose only price/title/location, so description-only slop is undetec
 - Extraction reads listing fields only; if they can't be found (login walls, layout changes), the card is left alone.
 - Bonus: `is_sold`/`is_pending` flags from the listing data catch dead listings from the feed.
 
+## Photo analysis: on-device, no uploads
+
+Listing photos carry signals text can't. Everything below runs locally via canvas — no OCR models, no reverse-image-search services, nothing uploaded (toggle: "Analyze listing photos on this device"):
+
+- **Catalog-style detection**: retailer product photos are product-on-pure-white (Amazon requires #FFFFFF backgrounds; Wayfair/Temu look the same). A white border ring around a real subject adds a context-band signal (`image-catalog-photo`, weight 18) that stacks with vendor/retail wording — "IKEA MALM Brand New in box" plus a stock photo reaches hide, while a real used item photographed in a room is untouched. Blank frames and legit sellers reusing an official photo for a genuinely used item (condition words present) stay safe.
+- **Image-duplicate flood tier**: a perceptual hash (64-bit dHash, tolerant of JPEG re-encoding) extends the collapse model: same title + same photo across 4+ distinct listings collapses the repeats even when the flooder rotates BOTH price and location — the case no text tier can catch. Different sellers photographing their own items never hash-collide.
+- **"Find photo online"**: a button on badges and detail banners opens Google Lens with the photo URL for a true reverse image search — strictly user-initiated, in a new tab.
+- CDN images that refuse cross-origin pixel access simply produce no signal (fail open).
+
+OCR was considered and deliberately deferred: a WASM OCR engine adds megabytes and ~100ms+ per thumbnail, and the white-background + duplicate-photo signals already catch the dominant copy-paste patterns those watermarks indicate.
+
 ## Item detail pages: where descriptions get scanned
 
 Feed cards only expose price/title/location, so description-only slop (a card that says nothing but a description full of Wayfair catalog links) is invisible at browse time — that is a property of what Facebook renders, not a rule gap. SlopBlock therefore scans the **item detail page** (`/marketplace/item/<id>`, including the dialog variant) separately:
@@ -95,9 +106,9 @@ Every layer of the tuning story, from fastest to deepest:
 
 ## Verification
 
-- `npm test` — 91 unit tests (scoring, flood analysis, DOM and detail-page extraction, UI plumbing).
+- `npm test` — 99 unit tests (scoring, flood analysis, DOM and detail-page extraction, UI plumbing).
 - `npm run eval` — scores the real-listing corpus (`eval/corpus/`) at every strength in both card view (what feed cards show) and detail view; reports FP/miss rates and per-rule noise. `--gate` fails on any legit dim/hide at balanced; wired into `npm run verify`.
-- `npm run e2e` — loads the built extension into real Chromium against a high-fidelity Marketplace DOM fixture (reconstructed from public scraper sources, `eval/raw/fb-dom-notes.md`) and verifies hiding, flood collapse, sponsored-cell removal, infinite scroll, badges, allow-item persistence, popup summary/settings sync, item detail-page banners, deep-scan feed detection, and the options tester — 44 checks.
+- `npm run e2e` — loads the built extension into real Chromium against a high-fidelity Marketplace DOM fixture (reconstructed from public scraper sources, `eval/raw/fb-dom-notes.md`) and verifies hiding, flood collapse, sponsored-cell removal, infinite scroll, badges, allow-item persistence, popup summary/settings sync, item detail-page banners, deep-scan feed detection, on-device photo analysis (catalog-photo hides, image-flood collapse, Lens button), and the options tester — 53 checks.
 - `npm run verify` — typecheck + tests + eval gate + build + audit + packaging checks.
 
 Current eval results (195-entry corpus: 123 real+curated legit, 53 real slop, 19 borderline): **0 legit listings labeled, dimmed, or hidden at any strength**; 98.1% of slop actioned in detail view at balanced (1 exotic miss), 58.5% actioned from card text alone.

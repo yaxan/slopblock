@@ -13,6 +13,59 @@ const TITLE_CLASSES = "x1lliihq x6ikm8r x10wlt62 x1n2onr6";
 const LOCATION_CLASSES = "x1lliihq x6ikm8r x10wlt62 x1n2onr6 xlyipyv xuxw1ft x1j85h84";
 const IMG_CLASSES = "xt7dq6l xl1xv1r x6ikm8r x10wlt62 xh8yej3";
 
+/** Tiny 16x16 24bpp BMP writer so the extension's canvas analysis sees real pixels. */
+export function bmp16(pixelAt) {
+  const width = 16;
+  const height = 16;
+  const rowBytes = width * 3;
+  const fileSize = 54 + rowBytes * height;
+  const buf = Buffer.alloc(fileSize);
+  buf.write("BM", 0, "ascii");
+  buf.writeUInt32LE(fileSize, 2);
+  buf.writeUInt32LE(54, 10);
+  buf.writeUInt32LE(40, 14);
+  buf.writeInt32LE(width, 18);
+  buf.writeInt32LE(height, 22);
+  buf.writeUInt16LE(1, 26);
+  buf.writeUInt16LE(24, 28);
+  buf.writeUInt32LE(0, 30);
+  buf.writeUInt32LE(rowBytes * height, 34);
+  let offset = 54;
+  for (let fileRow = 0; fileRow < height; fileRow += 1) {
+    const y = height - 1 - fileRow; // BMP rows are bottom-up
+    for (let x = 0; x < width; x += 1) {
+      const [r, g, b] = pixelAt(x, y);
+      buf[offset] = b;
+      buf[offset + 1] = g;
+      buf[offset + 2] = r;
+      offset += 3;
+    }
+  }
+  return buf;
+}
+
+/** Product-on-pure-white, the retailer catalog style. */
+export function catalogBmp() {
+  return bmp16((x, y) => (x >= 5 && x <= 10 && y >= 4 && y <= 11 ? [139, 94, 60] : [255, 255, 255]));
+}
+
+/** A fixed distinctive pattern shared by repost-flood cards. */
+export function floodBmp() {
+  return bmp16((x, y) => [((x * 37 + y * 11) % 200) + 30, ((x * 7 + y * 29) % 180) + 40, ((x * 17 + y * 3) % 160) + 50]);
+}
+
+/** Deterministic per-listing noise so unrelated cards never hash-collide. */
+export function noiseBmp(seedText) {
+  let seed = 0;
+  for (const ch of String(seedText)) {
+    seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+  }
+  return bmp16((x, y) => {
+    const v = (seed ^ (x * 2654435761) ^ (y * 40503)) >>> 0;
+    return [(v & 255), ((v >> 8) & 255), ((v >> 16) & 255)];
+  });
+}
+
 function escapeHtml(text) {
   return String(text ?? "")
     .replaceAll("&", "&amp;")
@@ -67,7 +120,7 @@ export function renderCell(card) {
     <a class="${ANCHOR_CLASSES}" role="link" tabindex="0"${aria} href="${href}">
       <div class="x9f619 x78zum5 xdt5ytf x1qughib">
         <div class="x78zum5 x1iyjqo2 xs83m0k">
-          <img alt="${alt}" class="${IMG_CLASSES}" src="/img/listing-${String(card.id).slice(-1)}.png" style="width: 100%; height: 200px; object-fit: cover; background: #ccd3dc;">
+          <img alt="${alt}" class="${IMG_CLASSES}" src="/img/${card.image ?? `n-${card.id}.bmp`}" style="width: 100%; height: 200px; object-fit: cover; background: #ccd3dc;">
         </div>
         <div class="x9f619 x78zum5 xdt5ytf x1iyjqo2">${lines.join("\n")}</div>
       </div>

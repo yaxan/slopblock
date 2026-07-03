@@ -63,6 +63,11 @@ export function extractListingSnapshot(card: HTMLElement, anchor: HTMLAnchorElem
     textLines: lines
   };
 
+  const image = card.querySelector<HTMLImageElement>("img[src]");
+  if (image?.src && /^https?:/i.test(image.src)) {
+    snapshot.imageUrl = image.src;
+  }
+
   const idHint = extractItemId(anchor.href);
   if (idHint) {
     snapshot.idHint = idHint;

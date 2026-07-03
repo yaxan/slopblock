@@ -1,4 +1,5 @@
 import { fingerprintText, normalizeText } from "../common/scoring";
+import { SAME_IMAGE_DISTANCE, hammingDistance } from "./imageScan";
 import type { DuplicateInfo, ListingSnapshot } from "../common/types";
 
 /**
@@ -21,11 +22,15 @@ import type { DuplicateInfo, ListingSnapshot } from "../common/types";
  *          $5 or less (or Free) — price-rotating bait floods.
  * - mass:  same title + same price across any locations, 6+ distinct listings
  *          — location-rotating repost floods.
+ * - image: same title + the same photo (perceptual hash), 4+ distinct
+ *          listings — catches floods that rotate BOTH price and location,
+ *          since reposts reuse the same picture.
  */
 
 const EXACT_TIER_MIN = 4;
 const BAIT_TIER_MIN = 4;
 const MASS_TIER_MIN = 6;
+const IMAGE_TIER_MIN = 4;
 const MIN_DISTINCTIVE_WORDS = 3;
 
 const GENERIC_FINGERPRINT_WORDS = new Set([
@@ -50,6 +55,7 @@ type ListingOccurrence = {
   price: string;
   location: string;
   isBaitPrice: boolean;
+  imageHash: string;
 };
 
 export function analyzeDuplicateFlood(snapshots: ListingSnapshot[], baseUrl = "https://www.facebook.com/"): DuplicateInfo[] {
@@ -75,7 +81,8 @@ export function analyzeDuplicateFlood(snapshots: ListingSnapshot[], baseUrl = "h
       titleFingerprint,
       price: normalizePrice(snapshot.priceText),
       location: normalizeText(snapshot.locationText).toLowerCase(),
-      isBaitPrice: isBaitPrice(snapshot.priceText)
+      isBaitPrice: isBaitPrice(snapshot.priceText),
+      imageHash: snapshot.imageHash ?? ""
     });
     identityOrder.push(identity);
   }
@@ -118,9 +125,58 @@ export function analyzeDuplicateFlood(snapshots: ListingSnapshot[], baseUrl = "h
       MASS_TIER_MIN,
       "mass"
     );
+    applyImageTier(infos, group);
   }
 
   return infos;
+}
+
+/**
+ * Cluster a title group by perceptual image hash (tolerating small JPEG
+ * re-encode differences) and collapse clusters of 4+ distinct listings —
+ * this survives price AND location rotation, because repost floods reuse
+ * the same photo.
+ */
+function applyImageTier(infos: DuplicateInfo[], group: ListingOccurrence[]): void {
+  const withHashes = group.filter((occurrence) => occurrence.imageHash !== "");
+  if (withHashes.length < IMAGE_TIER_MIN) {
+    return;
+  }
+
+  const clusters: ListingOccurrence[][] = [];
+  for (const occurrence of withHashes) {
+    const cluster = clusters.find(
+      (candidate) => hammingDistance(candidate[0]?.imageHash ?? "", occurrence.imageHash) <= SAME_IMAGE_DISTANCE
+    );
+    if (cluster) {
+      cluster.push(occurrence);
+    } else {
+      clusters.push([occurrence]);
+    }
+  }
+
+  for (const cluster of clusters) {
+    if (cluster.length < IMAGE_TIER_MIN) {
+      continue;
+    }
+
+    for (const [ordinal, occurrence] of cluster.entries()) {
+      for (const snapshotIndex of occurrence.snapshotIndexes) {
+        const info = infos[snapshotIndex];
+        if (!info) {
+          continue;
+        }
+
+        if (info.tier === null || cluster.length > info.groupSize) {
+          info.groupSize = cluster.length;
+          info.tier = "image";
+          info.ordinal = ordinal;
+        } else if (ordinal < info.ordinal) {
+          info.ordinal = ordinal;
+        }
+      }
+    }
+  }
 }
 
 function applyTier(
