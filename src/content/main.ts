@@ -835,14 +835,17 @@ function updateToolbar(): void {
 
   toolbar.dataset.active = filtered > 0 ? "true" : "false";
 
-  // Show a quiet "scanning" hint while deep-scan fetches are still in flight,
-  // so a not-yet-judged card reads as pending, not missed.
+  // Deep-scan progress is monotonic (done / requested), so it fills forward
+  // instead of bouncing with the live queue depth.
   const deepStats = settings?.deepScan ? deepScanner.stats() : null;
   const pending = deepStats?.pending ?? 0;
   toolbar.dataset.scanning = pending > 0 ? "true" : "false";
   const pillText = toolbar.querySelector<HTMLElement>(".slopblock-pill-text");
   if (pillText) {
-    pillText.textContent = pending > 0 ? `${filtered} filtered · scanning ${pending}` : `${filtered} filtered`;
+    pillText.textContent =
+      deepStats && pending > 0
+        ? `${filtered} filtered · checking ${deepStats.completed}/${deepStats.requested}`
+        : `${filtered} filtered`;
   }
 
   const toggleButton = toolbar.querySelector<HTMLButtonElement>('[data-slopblock-action="toggle-hidden"]');
@@ -868,7 +871,7 @@ function scheduleDeepScanPoll(): void {
   deepScanPollTimer = window.setTimeout(() => {
     deepScanPollTimer = undefined;
     scheduleScan(0);
-  }, 1500);
+  }, 700);
 }
 
 function isSlopBlockMutation(mutation: MutationRecord): boolean {

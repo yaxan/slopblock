@@ -175,6 +175,9 @@ async function installRoutes(context) {
 
     const detail = /\/marketplace\/(?:np\/)?item\//.test(url.pathname) ? detailHtml(url.pathname) : null;
     if (detail) {
+      // Simulate realistic per-listing fetch latency so the concurrency test
+      // is meaningful (serial x N would blow the timing budget).
+      await new Promise((resolve) => setTimeout(resolve, 350));
       await route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: detail });
       return;
     }
@@ -476,6 +479,22 @@ try {
   const healthText = await deepHealth.textContent("#pageSummary");
   check("popup surfaces deep-scan health (read N of M listings)", /Deep scan: read \d+ of \d+/.test(healthText ?? ""), (healthText ?? "").slice(0, 160));
   await deepHealth.close();
+
+  // Concurrency: a fresh page with several deep-scan targets should finish
+  // fetching well under the old serial time (~1.1s/listing). Route latency
+  // below simulates a realistic per-page fetch cost.
+  const timedPage = await context.newPage();
+  const started = Date.now();
+  await timedPage.goto("https://www.facebook.com/marketplace/?probe=timed", { waitUntil: "domcontentloaded" });
+  await timedPage.waitForFunction(
+    () => document.querySelector('[data-slopblock-item-id="4400"]')?.getAttribute("data-slopblock-processed") === "hide" &&
+          document.querySelector('[data-slopblock-item-id="2147792605766266"]')?.getAttribute("data-slopblock-processed") === "hide",
+    undefined,
+    { timeout: 20000 }
+  );
+  const elapsed = Date.now() - started;
+  check(`deep scan vets multiple listings concurrently (took ${elapsed}ms, serial would be ~2000ms+)`, elapsed < 4000, `${elapsed}ms`);
+  await timedPage.close();
 
   console.log("\n== vendor hide-all (IKEA) ==");
   const ikeaPopup = await context.newPage();

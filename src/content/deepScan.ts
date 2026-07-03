@@ -20,10 +20,17 @@ import { extractDetailSnapshot, findDetailContainer } from "./detail";
  *    alone rather than scored against page chrome.
  */
 
-const FETCH_SPACING_MS = 1100;
-const FETCH_JITTER_MS = 500;
-const MAX_FETCHES_PER_PAGE = 80;
-const ERROR_BACKOFF_MS = 5 * 60 * 1000;
+// Concurrency is the whole point: a serial ~1/second crawl took ~25s to vet
+// a full page, which defeats a time-saving tool. Browsers open ~6 connections
+// per host and users routinely middle-click a dozen listings into tabs, so a
+// bounded parallel prefetch of what's on screen is ordinary traffic. Safety
+// comes from a rolling-window rate cap + adaptive backoff, not from crawling.
+const MAX_CONCURRENT = 6;
+const DISPATCH_STAGGER_MS = 35;
+const RATE_WINDOW_MS = 60_000;
+const MAX_FETCHES_PER_WINDOW = 90;
+const ERROR_BACKOFF_MS = 45_000;
+const RATE_LIMIT_BACKOFF_MS = 90_000;
 const NO_DATA_TTL_MS = 30 * 60 * 1000;
 const VERDICT_TTL_MS = 6 * 60 * 60 * 1000;
 
@@ -41,6 +48,10 @@ export type DeepScanStats = {
   noData: number;
   errors: number;
   pending: number;
+  /** Total ever requested this page (monotonic) — the progress denominator. */
+  requested: number;
+  /** Total fetches finished this page (monotonic) — the progress numerator. */
+  completed: number;
   backoffMsRemaining: number;
   lastFailures: DeepScanFailure[];
 };
@@ -66,12 +77,16 @@ export function createDeepScanner(onVerdict: (itemId: string) => void): DeepScan
   const cache = new Map<string, CacheEntry>();
   const queue: string[] = [];
   const queued = new Set<string>();
+  const recentFetchTimes: number[] = [];
+  let requestedTotal = 0;
+  let completedTotal = 0;
   let fetchCount = 0;
   let parsedFromJson = 0;
   let parsedFromDom = 0;
   let noDataCount = 0;
   let errorCount = 0;
-  let timer: number | undefined;
+  let activeFetches = 0;
+  let retryTimer: number | undefined;
   let consecutiveErrors = 0;
   let backoffUntil = 0;
   const lastFailures: DeepScanFailure[] = [];
@@ -83,26 +98,42 @@ export function createDeepScanner(onVerdict: (itemId: string) => void): DeepScan
     }
   }
 
-  function schedule(): void {
-    if (timer !== undefined || queue.length === 0) {
+  function withinRateLimit(): boolean {
+    const cutoff = Date.now() - RATE_WINDOW_MS;
+    while (recentFetchTimes.length > 0 && (recentFetchTimes[0] ?? 0) < cutoff) {
+      recentFetchTimes.shift();
+    }
+    return recentFetchTimes.length < MAX_FETCHES_PER_WINDOW;
+  }
+
+  function scheduleRetry(delay: number): void {
+    if (retryTimer !== undefined) {
       return;
     }
-
-    const delay = FETCH_SPACING_MS + Math.random() * FETCH_JITTER_MS;
-    timer = window.setTimeout(() => {
-      timer = undefined;
-      void processNext();
+    retryTimer = window.setTimeout(() => {
+      retryTimer = undefined;
+      pump();
     }, delay);
   }
 
-  async function processNext(): Promise<void> {
-    if (document.hidden || Date.now() < backoffUntil) {
-      // Try again later without consuming the queue.
-      timer = window.setTimeout(() => {
-        timer = undefined;
-        void processNext();
-      }, 4000);
+  /** Fill the concurrency budget from the queue, staggered slightly. */
+  function pump(): void {
+    if (queue.length === 0) {
       return;
+    }
+
+    if (document.hidden || Date.now() < backoffUntil) {
+      scheduleRetry(2000);
+      return;
+    }
+
+    if (!withinRateLimit()) {
+      scheduleRetry(1000);
+      return;
+    }
+
+    if (activeFetches >= MAX_CONCURRENT) {
+      return; // a completion will re-pump
     }
 
     const itemId = queue.shift();
@@ -111,65 +142,86 @@ export function createDeepScanner(onVerdict: (itemId: string) => void): DeepScan
     }
     queued.delete(itemId);
 
-    if (!isFresh(cache.get(itemId)) && fetchCount < MAX_FETCHES_PER_PAGE) {
-      fetchCount += 1;
-      try {
-        const response = await fetch(`https://www.facebook.com/marketplace/item/${encodeURIComponent(itemId)}/`, {
-          credentials: "same-origin",
-          headers: { accept: "text/html" }
-        });
-
-        if (response.ok) {
-          const html = await response.text();
-
-          if (looksLikeLoginWall(html, response.url)) {
-            // Session hiccup or bot check: retryable, don't cache as no-data.
-            registerError(itemId, "login-wall");
-          } else {
-            consecutiveErrors = 0;
-            let snapshot = extractListingFromHtml(html, itemId);
-            if (snapshot) {
-              parsedFromJson += 1;
-            } else {
-              // Some listing types (notably vehicles/dealer pages) ship
-              // server-rendered DOM instead of the embedded JSON payload.
-              // Fall back to the same extractor the detail-page scan uses.
-              snapshot = extractListingViaDom(html, itemId, (raw) =>
-                new DOMParser().parseFromString(raw, "text/html")
-              );
-              if (snapshot) {
-                parsedFromDom += 1;
-              }
-            }
-
-            if (!snapshot) {
-              noDataCount += 1;
-              recordFailure(itemId, "no-listing-data");
-            }
-            cache.set(itemId, { snapshot, fetchedAt: Date.now() });
-            if (snapshot) {
-              onVerdict(itemId);
-            }
-          }
-        } else {
-          registerError(itemId, `http-${response.status}`);
-        }
-      } catch {
-        registerError(itemId, "network");
-      }
+    if (isFresh(cache.get(itemId))) {
+      pump();
+      return;
     }
 
-    schedule();
+    activeFetches += 1;
+    fetchCount += 1;
+    recentFetchTimes.push(Date.now());
+    void runFetch(itemId).finally(() => {
+      activeFetches -= 1;
+      completedTotal += 1;
+      pump();
+    });
+
+    // Dispatch the next one after a small stagger so a burst isn't perfectly
+    // synchronized, while still keeping up to MAX_CONCURRENT in flight.
+    if (queue.length > 0 && activeFetches < MAX_CONCURRENT) {
+      window.setTimeout(pump, DISPATCH_STAGGER_MS);
+    }
   }
 
-  function registerError(itemId: string, kind: string): void {
+  async function runFetch(itemId: string): Promise<void> {
+    try {
+      const response = await fetch(`https://www.facebook.com/marketplace/item/${encodeURIComponent(itemId)}/`, {
+        credentials: "same-origin",
+        headers: { accept: "text/html" }
+      });
+
+      if (response.status === 429 || response.status === 503) {
+        registerError(itemId, `rate-${response.status}`, RATE_LIMIT_BACKOFF_MS);
+        return;
+      }
+
+      if (!response.ok) {
+        registerError(itemId, `http-${response.status}`, ERROR_BACKOFF_MS);
+        return;
+      }
+
+      const html = await response.text();
+      if (looksLikeLoginWall(html, response.url)) {
+        registerError(itemId, "login-wall", ERROR_BACKOFF_MS);
+        return;
+      }
+
+      consecutiveErrors = 0;
+      let snapshot = extractListingFromHtml(html, itemId);
+      if (snapshot) {
+        parsedFromJson += 1;
+      } else {
+        // Some listing types (notably vehicles/dealer pages) ship
+        // server-rendered DOM instead of the embedded JSON payload.
+        // Fall back to the same extractor the detail-page scan uses.
+        snapshot = extractListingViaDom(html, itemId, (raw) => new DOMParser().parseFromString(raw, "text/html"));
+        if (snapshot) {
+          parsedFromDom += 1;
+        }
+      }
+
+      if (!snapshot) {
+        noDataCount += 1;
+        recordFailure(itemId, "no-listing-data");
+      }
+      cache.set(itemId, { snapshot, fetchedAt: Date.now() });
+      if (snapshot) {
+        onVerdict(itemId);
+      }
+    } catch {
+      registerError(itemId, "network", ERROR_BACKOFF_MS);
+    }
+  }
+
+  function registerError(itemId: string, kind: string, backoffMs: number): void {
     consecutiveErrors += 1;
     errorCount += 1;
     recordFailure(itemId, kind);
     // Short error TTL so transient throttling retries soon.
     cache.set(itemId, { snapshot: null, fetchedAt: Date.now() - NO_DATA_TTL_MS + 60_000 });
-    if (consecutiveErrors >= 3) {
-      backoffUntil = Date.now() + ERROR_BACKOFF_MS;
+    // A rate-limit signal or a run of errors pauses all fetching.
+    if (backoffMs >= RATE_LIMIT_BACKOFF_MS || consecutiveErrors >= 4) {
+      backoffUntil = Date.now() + backoffMs;
     }
   }
 
@@ -184,7 +236,7 @@ export function createDeepScanner(onVerdict: (itemId: string) => void): DeepScan
 
   return {
     request(itemId: string, priority = false): void {
-      if (!itemId || isFresh(cache.get(itemId)) || fetchCount >= MAX_FETCHES_PER_PAGE) {
+      if (!itemId || isFresh(cache.get(itemId))) {
         return;
       }
 
@@ -201,12 +253,13 @@ export function createDeepScanner(onVerdict: (itemId: string) => void): DeepScan
       }
 
       queued.add(itemId);
+      requestedTotal += 1;
       if (priority) {
         queue.unshift(itemId);
       } else {
         queue.push(itemId);
       }
-      schedule();
+      pump();
     },
 
     getSnapshot(itemId: string): ListingSnapshot | undefined {
@@ -229,7 +282,9 @@ export function createDeepScanner(onVerdict: (itemId: string) => void): DeepScan
         parsedFromDom,
         noData: noDataCount,
         errors: errorCount,
-        pending: queue.length,
+        pending: queue.length + activeFetches,
+        requested: requestedTotal,
+        completed: completedTotal,
         backoffMsRemaining: Math.max(0, backoffUntil - Date.now()),
         lastFailures: [...lastFailures]
       };

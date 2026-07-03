@@ -8,6 +8,8 @@ export type DeepScanDebug = {
   noData: number;
   errors: number;
   pending: number;
+  requested: number;
+  completed: number;
   backoffMsRemaining: number;
   lastFailures: Array<{ itemId: string; kind: string }>;
 };
@@ -58,7 +60,7 @@ function parseDeepScanDebug(input: unknown): DeepScanDebug | undefined {
     return undefined;
   }
 
-  const numbers = ["fetched", "parsedFromJson", "parsedFromDom", "noData", "errors", "pending", "backoffMsRemaining"] as const;
+  const numbers = ["fetched", "parsedFromJson", "parsedFromDom", "noData", "errors", "pending", "requested", "completed", "backoffMsRemaining"] as const;
   for (const key of numbers) {
     if (!isNonNegativeInteger(input[key])) {
       return undefined;
@@ -84,6 +86,8 @@ function parseDeepScanDebug(input: unknown): DeepScanDebug | undefined {
     noData: input.noData as number,
     errors: input.errors as number,
     pending: input.pending as number,
+    requested: input.requested as number,
+    completed: input.completed as number,
     backoffMsRemaining: input.backoffMsRemaining as number,
     lastFailures
   };

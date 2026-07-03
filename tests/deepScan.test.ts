@@ -110,3 +110,65 @@ test("login walls are recognized as retryable failures, not listing data", () =>
     "a page WITH listing data is not a login wall even if a login form exists in the footer"
   );
 });
+
+test("deep scan fetches concurrently (not one-at-a-time) and respects the cap", async () => {
+  const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "https://www.facebook.com/marketplace/", pretendToBeVisual: true });
+  const priorGlobals = {
+    window: (globalThis as Record<string, unknown>).window,
+    document: (globalThis as Record<string, unknown>).document,
+    fetch: (globalThis as Record<string, unknown>).fetch,
+    DOMParser: (globalThis as Record<string, unknown>).DOMParser
+  };
+  (globalThis as Record<string, unknown>).window = dom.window;
+  (globalThis as Record<string, unknown>).document = dom.window.document;
+  (globalThis as Record<string, unknown>).DOMParser = dom.window.DOMParser;
+
+  let active = 0;
+  let peak = 0;
+  let started = 0;
+  (globalThis as Record<string, unknown>).fetch = async (url: string) => {
+    started += 1;
+    active += 1;
+    peak = Math.max(peak, active);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    active -= 1;
+    const id = url.match(/item\/(\d+)/)?.[1] ?? "0";
+    return {
+      ok: true,
+      status: 200,
+      url,
+      text: async () =>
+        `<script type="application/json">{"marketplace_listing_title":"Item ${id}","formatted_amount":"$${id}","redacted_description":{"text":"desc ${id}"}}</script>`
+    };
+  };
+
+  try {
+    const { createDeepScanner } = await import("../src/content/deepScan");
+    let verdicts = 0;
+    const scanner = createDeepScanner(() => {
+      verdicts += 1;
+    });
+
+    for (let i = 1; i <= 12; i += 1) {
+      scanner.request(String(1000 + i));
+    }
+    assert.equal(scanner.stats().requested, 12);
+
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    assert.ok(peak >= 3, `expected concurrent fetches, peak was ${peak}`);
+    assert.ok(peak <= 6, `expected concurrency capped at 6, peak was ${peak}`);
+    assert.equal(started, 12, "all listings fetched");
+    assert.equal(verdicts, 12, "all produced verdicts");
+    assert.equal(scanner.stats().completed, 12);
+    assert.ok(scanner.getSnapshot("1001"), "snapshot cached");
+  } finally {
+    for (const [key, value] of Object.entries(priorGlobals)) {
+      if (value === undefined) {
+        delete (globalThis as Record<string, unknown>)[key];
+      } else {
+        (globalThis as Record<string, unknown>)[key] = value;
+      }
+    }
+  }
+});
