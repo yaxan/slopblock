@@ -62,10 +62,17 @@ for (const file of codeFiles(["dist"])) {
   assert(!/sourceMappingURL=/.test(content), `Release build should not reference a source map: ${file}`);
 }
 
+// Network policy: fetch() is allowed ONLY where a documented feature needs
+// it — deep scan (same-origin listing pages from facebook.com) and local
+// photo analysis (reading image pixels the page already displays). The
+// popup/options bundles and everything else stay network-free.
+const fetchAllowedFiles = new Set(["src/content/deepScan.ts", "src/content/imageScan.ts", "dist/content.js"]);
+
 const forbiddenCodePatterns = [
-  /\bfetch\s*\(/,
   /\bXMLHttpRequest\b/,
   /\bnavigator\.sendBeacon\b/,
+  /\bWebSocket\s*\(/,
+  /\bEventSource\s*\(/,
   /\bchrome\.runtime\.connect\b/,
   /\bchrome\.cookies\b/,
   /\bchrome\.history\b/,
@@ -77,6 +84,35 @@ for (const file of codeFiles(["src", "dist"])) {
   for (const pattern of forbiddenCodePatterns) {
     assert(!pattern.test(content), `Forbidden network/privacy-sensitive API in ${file}: ${pattern}`);
   }
+
+  if (/\bfetch\s*\(/.test(content)) {
+    assert(fetchAllowedFiles.has(file.replaceAll("\\", "/")), `fetch() outside the allowlisted network features in ${file}`);
+  }
+}
+
+// Deep scan may only talk to facebook.com, with the user's own session.
+const deepScanSource = readFileSync("src/content/deepScan.ts", "utf8");
+assert(
+  deepScanSource.includes("https://www.facebook.com/marketplace/item/"),
+  "Deep scan must fetch Marketplace item pages only"
+);
+
+// Photo analysis must not attach credentials to CDN image requests.
+const imageScanSource = readFileSync("src/content/imageScan.ts", "utf8");
+assert(imageScanSource.includes('credentials: "omit"'), "Image analysis must fetch images without credentials");
+
+// The extension pages stay entirely network-free.
+for (const file of ["dist/popup.js", "dist/options.js"]) {
+  assert(!/\bfetch\s*\(/.test(readFileSync(file, "utf8")), `Expected no network calls in ${file}`);
+}
+
+// Every absolute URL baked into the content bundle must point at an
+// expected host (facebook.com for deep scan/diagnostics links, l.facebook.com
+// unwrapping, Google Lens for the user-initiated button).
+const allowedContentHosts = new Set(["www.facebook.com", "l.facebook.com", "lens.google.com"]);
+const contentBundle = readFileSync("dist/content.js", "utf8");
+for (const match of contentBundle.matchAll(/https?:\/\/([a-z0-9.-]+)/gi)) {
+  assert(allowedContentHosts.has(match[1].toLowerCase()), `Unexpected host baked into content bundle: ${match[1]}`);
 }
 
 console.log("Extension package verified.");
