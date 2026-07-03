@@ -1,19 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="SlopBlock icon">
-  <defs>
-    <linearGradient id="paper" x1="15" y1="8" x2="112" y2="118" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#fff1c7"/>
-      <stop offset="0.58" stop-color="#dfe9c8"/>
-      <stop offset="1" stop-color="#f3c28e"/>
-    </linearGradient>
-    <linearGradient id="shield" x1="31" y1="23" x2="95" y2="101" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#3f6c3e"/>
-      <stop offset="1" stop-color="#23371f"/>
-    </linearGradient>
-  </defs>
-  <rect width="128" height="128" rx="30" fill="url(#paper)"/>
-  <path d="M64 18 99 31v30c0 25-14 42-35 51-21-9-35-26-35-51V31l35-13Z" fill="url(#shield)"/>
-  <path d="M42 42h44l-6 13H48l-6-13Z" fill="#fff4d4"/>
-  <path d="M52 61h24l-5 28H57l-5-28Z" fill="#fff4d4"/>
-  <path d="m40 91 49-49" stroke="#d95c32" stroke-width="12" stroke-linecap="round"/>
-  <path d="m38 91 49-49" stroke="#fff4d4" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect x="22.5" y="22.5" width="83" height="83" fill="#f4f2ec" stroke="#221f1a" stroke-width="13"/>
+  <line x1="8" y1="120" x2="120" y2="8" stroke="#c14a14" stroke-width="18" stroke-linecap="square"/>
 </svg>

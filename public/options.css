@@ -551,6 +551,17 @@ label {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+  align-items: stretch;
+}
+
+.terms-grid label {
+  display: flex;
+  flex-direction: column;
+}
+
+.terms-grid textarea {
+  flex: 1;
+  min-height: 120px;
 }
 
 @media (max-width: 700px) {

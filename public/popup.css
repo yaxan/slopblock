@@ -113,6 +113,12 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  margin-bottom: 9px;
+}
+
+.panel-heading .panel-title,
+.panel-heading .panel-note {
+  margin-bottom: 0;
 }
 
 .panel-heading-actions {
@@ -126,10 +132,6 @@ body {
   font: 600 10px/1 var(--mono);
   letter-spacing: 0.1em;
   text-transform: uppercase;
-}
-
-.panel-heading .panel-title {
-  margin-bottom: 8px;
 }
 
 .panel-note {
